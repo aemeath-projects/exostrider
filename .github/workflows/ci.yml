@@ -2,8 +2,6 @@ name: CI
 
 on:
   push:
-    branches: [master]
-    tags: ['*']
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -16,8 +14,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
 
       - uses: pnpm/action-setup@v6
 
@@ -46,6 +42,7 @@ jobs:
         if: always()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
           fail_ci_if_error: false
 
       - name: Upload test results to Codecov

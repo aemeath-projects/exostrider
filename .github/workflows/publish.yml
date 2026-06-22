@@ -1,0 +1,42 @@
+name: Publish
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types:
+      - completed
+
+jobs:
+  npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'v') &&
+      contains(github.event.workflow_run.head_branch, '.')
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Publish to npm
+        run: pnpm publish --no-git-checks --provenance --access public

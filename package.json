@@ -1,0 +1,117 @@
+{
+  "name": "@aemeath-projects/exostrider",
+  "version": "0.1.0",
+  "description": "平台无关的 TypeScript 事件驱动框架，内置装饰器路由、服务生命周期编排、会话状态机与结构化日志",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" \"*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" \"tests/**/*.ts\" \"*.ts\" --fix",
+    "format": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "format:fix": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "bump": "commit-and-tag-version",
+    "bump:patch": "commit-and-tag-version --release-as patch",
+    "bump:minor": "commit-and-tag-version --release-as minor",
+    "bump:major": "commit-and-tag-version --release-as major",
+    "changelog": "commit-and-tag-version --skip.bump --skip.commit --skip.tag",
+    "commit": "cz",
+    "prepublishOnly": "pnpm lint && pnpm type-check && pnpm run test && pnpm run build",
+    "prepare": "husky"
+  },
+  "keywords": [],
+  "author": "Aemeath Projects",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aemeath-projects/exostrider.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aemeath-projects/exostrider/issues"
+  },
+  "homepage": "https://aemeath.dev",
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "tests/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./echo": {
+      "types": "./dist/echo/index.d.ts",
+      "import": "./dist/echo/index.js"
+    },
+    "./lifecycle": {
+      "types": "./dist/lifecycle/index.d.ts",
+      "import": "./dist/lifecycle/index.js"
+    },
+    "./dispatch": {
+      "types": "./dist/dispatch/index.d.ts",
+      "import": "./dist/dispatch/index.js"
+    },
+    "./session": {
+      "types": "./dist/session/index.d.ts",
+      "import": "./dist/session/index.js"
+    },
+    "./logger": {
+      "types": "./dist/logger/index.d.ts",
+      "import": "./dist/logger/index.js"
+    }
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.0.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "commit-and-tag-version": "^12.7.3",
+    "commitizen": "^4.3.2",
+    "cz-conventional-changelog": "^3.3.0",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import-x": "^4.16.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "prettier": "^3.8.4",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.1",
+    "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "minimatch": "^10.0.0",
+    "pino": "^9.0.0",
+    "pino-pretty": "^13.0.0"
+  }
+}

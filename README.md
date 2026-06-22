@@ -1,23 +1,23 @@
-# Aemeath Exostrider 隧者
+# Aemeath Exostrider
 
-平台无关的 TypeScript 事件驱动框架，内置装饰器路由、服务生命周期编排、会话状态机与结构化日志
+隧者：TypeScript 事件驱动框架，内置装饰器路由、服务生命周期编排、会话状态机与结构化日志
 
 ![NPM Version](https://img.shields.io/npm/v/%40aemeath-projects%2Fexostrider?style=for-the-badge)
 ![CI Status](https://img.shields.io/github/actions/workflow/status/aemeath-projects/exostrider/ci.yml?style=for-the-badge)
 ![Codecov](https://img.shields.io/codecov/c/github/aemeath-projects/exostrider/master?style=for-the-badge)
 ![License](https://img.shields.io/github/license/aemeath-projects/exostrider?style=for-the-badge)
 
-**Exostrider**（隧者）是一个平台无关的事件驱动框架库，专为构建基于装饰器的消息处理系统而设计。
+**Exostrider** | 隧者 是一个平台无关的事件驱动框架库，专为构建基于装饰器的消息处理系统而设计。
 
 框架由五个解耦模块组成：
 
-| 模块 | 功能 |
-|------|------|
-| **Echo** | 扫描指定目录，自动 import 触发装饰器副作用注册 |
+| 模块            | 功能                                             |
+|---------------|------------------------------------------------|
+| **Echo**      | 扫描指定目录，自动 import 触发装饰器副作用注册                    |
 | **Lifecycle** | 拓扑排序服务依赖，提供 `@Startup`/`@Shutdown` 生命周期钩子与依赖注入 |
-| **Dispatch** | 七种路由策略（命令/正则/关键词等）的复合映射，支持拦截器链 |
-| **Session** | 基于有限状态机的会话管理，支持超时自动取消与并发锁 |
-| **Logger** | pino 封装，全局注入，支持外部订阅日志事件 |
+| **Dispatch**  | 七种路由策略（命令/正则/关键词等）的复合映射，支持拦截器链                 |
+| **Session**   | 基于有限状态机的会话管理，支持超时自动取消与并发锁                      |
+| **Logger**    | pino 封装，全局注入，支持外部订阅日志事件                        |
 
 通过 `Exostrider` 门面类一行完成 bootstrap，泛型 `TEvent`/`TApis` 由宿主（调用方）传入，实现零耦合接入任意平台。
 

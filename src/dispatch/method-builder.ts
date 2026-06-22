@@ -4,8 +4,8 @@
  */
 
 import type { MethodMetaEntry, InterceptorEntry } from './decorators'
-import type { HandlerMethod } from './mapping.js'
-import type { HandlerRegistryData } from './registry.js'
+import type { HandlerMethod } from './mapping'
+import type { HandlerRegistryData } from './registry'
 
 /**
  * 将单条方法元数据条目转换为 HandlerMethod。

@@ -1,6 +1,6 @@
 /** @SettingNode 装饰器：声明 Handler 上的可配置项。 */
 
-import { HANDLER_SETTINGS, type SettingNodeEntry, type SettingNodeOptions } from './symbols.js'
+import { HANDLER_SETTINGS, type SettingNodeEntry, type SettingNodeOptions } from './symbols'
 
 export type { SettingNodeOptions }
 

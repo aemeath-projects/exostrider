@@ -60,7 +60,7 @@ describe('loadEchoConfig', () => {
     const configPath = path.join(tmpDir, 'bad-config.mjs')
     try {
       await fs.writeFile(configPath, 'export const foo = 1;\n')
-      await expect(loadEchoConfig(configPath)).rejects.toThrow(/default export/)
+      await expect(loadEchoConfig(configPath)).rejects.toThrow(/default 导出/)
     } finally {
       await fs.rm(tmpDir, { recursive: true })
     }

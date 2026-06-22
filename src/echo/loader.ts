@@ -7,8 +7,8 @@ import { minimatch } from 'minimatch'
 
 import type { Logger } from '../types'
 
-import type { EchoConfig } from './config.js'
-import { normalizeEchoDirConfig } from './config.js'
+import type { EchoConfig } from './config'
+import { normalizeEchoDirConfig } from './config'
 
 /** 单个 Echo 模块条目。 */
 export interface EchoEntry {

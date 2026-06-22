@@ -5,7 +5,7 @@
  * 具体平台通过 ContextConfig 注入文本提取/参数解析/回复逻辑。
  */
 
-import { FinishError } from './errors.js'
+import { FinishError } from './errors'
 
 /** Context 配置：注入平台相关的提取/回复逻辑。 */
 export interface ContextConfig<TEvent, TApis> {

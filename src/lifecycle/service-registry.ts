@@ -21,7 +21,7 @@ export class ServiceRegistry<TMap extends Record<string, unknown> = Record<strin
   /** 按名称获取服务实例，不存在时抛出 Error。 */
   get<K extends keyof TMap & string>(key: K): TMap[K] {
     if (!this._store.has(key)) {
-      throw new Error(`Service "${key}" not found in registry`)
+      throw new Error(`服务 "${key}" 未在注册表中找到`)
     }
     return this._store.get(key) as TMap[K]
   }

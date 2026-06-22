@@ -5,8 +5,8 @@
  * 元数据通过函数属性（Property Assignment）附加，与 DecoratorMetadataObject 解耦。
  */
 
-import { SESSION_META_KEY, STATE_META_KEY, INPUT_META_KEY, EXIT_META_KEY } from './base.js'
-import type { SessionClassMeta, StateMethMeta, InputMethMeta, ExitMethMeta } from './base.js'
+import { SESSION_META_KEY, STATE_META_KEY, INPUT_META_KEY, EXIT_META_KEY } from './base'
+import type { SessionClassMeta, StateMethMeta, InputMethMeta, ExitMethMeta } from './base'
 
 export type { SessionClassMeta as SessionOptions, StateMethMeta as StateOptions }
 

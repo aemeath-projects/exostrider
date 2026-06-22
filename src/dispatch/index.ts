@@ -2,12 +2,12 @@
  * dispatch 模块统一导出入口。
  */
 
-export { Context } from './context.js'
-export type { ContextConfig } from './context.js'
-export { Permission, MessageScope } from './constants.js'
-export type { PermissionLevel, MessageScopeValue } from './constants.js'
-export { FinishError } from './errors.js'
-export type { HandlerInterceptor, ResolvedHandler } from './interceptor.js'
+export { Context } from './context'
+export type { ContextConfig } from './context'
+export { Permission, MessageScope } from './constants'
+export type { PermissionLevel, MessageScopeValue } from './constants'
+export { FinishError } from './errors'
+export type { HandlerInterceptor, ResolvedHandler } from './interceptor'
 export {
   CompositeHandlerMapping,
   CommandHandlerMapping,
@@ -17,14 +17,14 @@ export {
   EndsWithHandlerMapping,
   FullMatchHandlerMapping,
   EventTypeHandlerMapping,
-} from './mapping.js'
-export type { HandlerMethod, HandlerMapping, MappingType } from './mapping.js'
-export { buildHandlerMethod } from './method-builder.js'
-export { HandlerRegistry, handlerRegistry } from './registry.js'
-export type { HandlerOptions, HandlerRegistryData } from './registry.js'
-export { EventDispatcher } from './dispatcher.js'
-export type { EventDispatcherOptions } from './dispatcher.js'
-// Decorators
+} from './mapping'
+export type { HandlerMethod, HandlerMapping, MappingType } from './mapping'
+export { buildHandlerMethod } from './method-builder'
+export { HandlerRegistry, handlerRegistry } from './registry'
+export type { HandlerOptions, HandlerRegistryData } from './registry'
+export { EventDispatcher } from './dispatcher'
+export type { EventDispatcherOptions } from './dispatcher'
+// 装饰器
 export {
   Handler,
   OnCommand,
@@ -44,7 +44,7 @@ export {
   HANDLER_SETTINGS,
   HANDLER_NAME,
   HANDLER_OPTIONS,
-} from './decorators/index.js'
+} from './decorators'
 export type {
   OnCommandOptions,
   EventMatchConfig,
@@ -53,4 +53,4 @@ export type {
   InterceptorEntry,
   SettingNodeEntry,
   HandlerOptions as HandlerDecoratorOptions,
-} from './decorators/index.js'
+} from './decorators'

@@ -1,9 +1,9 @@
 /** 生命周期装饰器 barrel 导出。 */
 
-export { Inject } from './inject.js'
-export { Provide } from './provide.js'
-export { Startup, Shutdown } from './lifecycle.js'
-export { Service, serviceEntryRegistry, type ServiceOptions } from './service.js'
+export { Inject } from './inject'
+export { Provide } from './provide'
+export { Startup, Shutdown } from './lifecycle'
+export { Service, serviceEntryRegistry, type ServiceOptions } from './service'
 export {
   SERVICE_NAME,
   SERVICE_INJECTS,
@@ -12,4 +12,4 @@ export {
   SERVICE_SHUTDOWN,
   type InjectEntry,
   type ProvideEntry,
-} from './symbols.js'
+} from './symbols'

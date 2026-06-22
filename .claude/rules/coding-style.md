@@ -48,24 +48,33 @@
 
 ## 导入规范（ESM Strict）
 
-- `src/` 内部所有模块导入**必须**使用 `.js` 后缀（tsup 编译后兼容）：`import { foo } from './foo.js'`
-- 类型专用导入必须使用 `import type`：`import type { Bar } from './bar.js'`
+- `src/` 内部所有模块导入**禁止**使用 `.js` 后缀（`moduleResolution: bundler` 不需要扩展名）：`import { foo } from './foo'`
+- 类型专用导入必须使用 `import type`：`import type { Bar } from './bar'`
+- 测试文件导入 `src/` 模块时，**优先**通过 barrel（`index.ts`）导入，仅在 barrel 未导出该符号时才直接导入实现文件
 - **禁止**循环依赖；如有循环请通过依赖注入或接口抽象解耦
 - 导入顺序：Node 内建（`node:` 前缀）→ 第三方库 → 项目内部（ESLint `import-x` 规则自动排序）
 
 ## 命名规范
 
-| 场景                       | 规则             | 示例                                              |
-| -------------------------- | ---------------- | ------------------------------------------------- |
-| 变量/函数/方法             | `camelCase`      | `buildMappings()`, `sessionKey`                   |
-| 类/接口/类型/枚举          | `PascalCase`     | `EventDispatcher`, `HandlerMapping`               |
-| 常量                       | `UPPER_SNAKE`    | `MAX_RETRY`, `DEFAULT_TIMEOUT_MS`                 |
-| 模块级 Symbol              | `camelCase`      | `handlerMetaKey`, `interceptorSymbol`             |
-| 装饰器函数                 | `PascalCase`     | `@Handler`, `@OnCommand`, `@Inject`               |
-| 测试文件                   | `<name>.test.ts` | `mapping.test.ts`, `session-stress.test.ts`       |
+| 场景                         | 规则                              | 示例                                                    |
+| ---------------------------- | --------------------------------- | ------------------------------------------------------- |
+| 源文件名                     | `kebab-case.ts`                   | `method-builder.ts`, `service-registry.ts`              |
+| 测试文件名                   | `<name>.test.ts`                  | `mapping.test.ts`, `session-stress.test.ts`             |
+| 变量 / 方法                  | `camelCase`                       | `sessionKey`, `buildMappings()`                         |
+| 函数（含装饰器工厂）         | `camelCase` 或 `PascalCase`       | `createHandler()`, `@Handler`, `@OnCommand`, `@Inject`  |
+| 类                           | `PascalCase`                      | `EventDispatcher`, `LifecycleOrchestrator`              |
+| 接口                         | `PascalCase`，禁止 `I` 前缀       | `HandlerMapping`, `EchoConfig`                          |
+| 类型别名                     | `PascalCase`                      | `PermissionLevel`, `MessageScopeValue`                  |
+| 枚举名                       | `PascalCase`                      | `Permission`, `MessageScope`, `TimeoutMode`             |
+| 枚举成员                     | `UPPER_CASE`                      | `Permission.GROUP_ADMIN`, `TimeoutMode.SILENT`          |
+| const 常量（模块级原始值）   | `UPPER_CASE`                      | `DEFAULT_TIMEOUT_MS`, `DEFAULT_CANCEL_COMMANDS`         |
+| const 对象（`as const`）     | `PascalCase`                      | `Permission`, `MessageScope`, `TimeoutMode`             |
+| Symbol 变量                  | `UPPER_CASE`                      | `SERVICE_NAME`, `HANDLER_METHODS`, `HANDLER_NAME`       |
+| 泛型参数                     | `PascalCase`                      | `T`, `K`, `V`, `TEvent`, `TContext`                     |
+| 私有属性 / 方法              | `camelCase`，下划线前缀可选       | `_handleEvent()` 或 `handleEvent()`                     |
 
 ## 公共 API 文档
 
 - `src/*/index.ts` 中导出的类和函数必须附带中文 JSDoc 说明
-- 泛型参数（如 `TEvent`、`TApis`）必须在 JSDoc 中说明约束和宿主传入方式
+- 泛型参数（如 `TEvent`、`TContext`）必须在 JSDoc 中说明约束和宿主传入方式
 - **禁止**提交 TODO/FIXME 注释，未完成的工作应开 Issue 追踪

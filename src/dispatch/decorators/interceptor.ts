@@ -1,7 +1,7 @@
 /** @Interceptor 装饰器：声明式绑定拦截器，可作用于类或方法。 */
 
-import { HANDLER_CLASS_INTERCEPTORS, type InterceptorEntry } from './symbols.js'
-import { getOrCreateMethodEntry } from './utils.js'
+import { HANDLER_CLASS_INTERCEPTORS, type InterceptorEntry } from './symbols'
+import { getOrCreateMethodEntry } from './utils'
 
 /**
  * 声明式绑定拦截器。可用于类（对所有方法生效）或方法（仅对该方法生效）。

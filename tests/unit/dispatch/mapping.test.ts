@@ -127,6 +127,24 @@ describe('CommandHandlerMapping', () => {
     mapping.register(handler)
     expect(mapping.registeredCount).toBe(0)
   })
+
+  it('cmd 非字符串时退化为空字符串不注册', () => {
+    const handler = makeHandler({
+      mappingType: 'command',
+
+      trigger: { cmd: 123 },
+    })
+    mapping.register(handler)
+    expect(mapping.registeredCount).toBe(0)
+  })
+
+  it('优先级数值更大的 handler 不覆盖已注册的同命令 handler', () => {
+    const first = makeHandler({ trigger: { cmd: 'echo' }, priority: 10, handlerName: 'first' })
+    const second = makeHandler({ trigger: { cmd: 'echo' }, priority: 50, handlerName: 'second' })
+    mapping.register(first)
+    mapping.register(second)
+    expect(mapping.getHandler(makeCtx('/echo'))?.handlerName).toBe('first')
+  })
 })
 
 describe('RegexHandlerMapping', () => {
@@ -372,6 +390,24 @@ describe('FullMatchHandlerMapping', () => {
     const handler = makeHandler({ mappingType: 'fullmatch', trigger: {} })
     mapping.register(handler)
     expect(mapping.registeredCount).toBe(0)
+  })
+
+  it('优先级数值更大的 handler 不覆盖已注册的同文本 handler', () => {
+    const first = makeHandler({
+      mappingType: 'fullmatch',
+      trigger: { text: '你好' },
+      priority: 10,
+      handlerName: 'first',
+    })
+    const second = makeHandler({
+      mappingType: 'fullmatch',
+      trigger: { text: '你好' },
+      priority: 50,
+      handlerName: 'second',
+    })
+    mapping.register(first)
+    mapping.register(second)
+    expect(mapping.getHandler(makeCtx('你好'))?.handlerName).toBe('first')
   })
 })
 

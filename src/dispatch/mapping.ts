@@ -5,7 +5,7 @@
  * 具体事件类型由泛型参数 TEvent 决定。
  */
 
-import type { Context } from './context.js'
+import type { Context } from './context'
 import type { InterceptorEntry } from './decorators'
 
 /** 处理器方法类型 */

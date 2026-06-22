@@ -1,7 +1,7 @@
 /** lifecycle 模块 barrel 导出。 */
 
-export { LifecycleOrchestrator } from './orchestrator.js'
-export { ServiceRegistry } from './service-registry.js'
+export { LifecycleOrchestrator } from './orchestrator'
+export { ServiceRegistry } from './service-registry'
 export {
   Inject,
   Provide,
@@ -17,5 +17,5 @@ export {
   SERVICE_PROVIDES,
   SERVICE_STARTUP,
   SERVICE_SHUTDOWN,
-} from './decorators/index.js'
-export type { ServiceEntry } from './service-entry.js'
+} from './decorators/index'
+export type { ServiceEntry } from './service-entry'

@@ -1,7 +1,7 @@
 {
   "name": "@aemeath-projects/exostrider",
   "version": "1.0.0",
-  "description": "平台无关的 TypeScript 事件驱动框架，内置装饰器路由、服务生命周期编排、会话状态机与结构化日志",
+  "description": "隧者：TypeScript 事件驱动框架，内置装饰器路由、服务生命周期编排、会话状态机与结构化日志",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -33,7 +33,19 @@
     "prepublishOnly": "pnpm lint && pnpm type-check && pnpm run test && pnpm run build",
     "prepare": "husky"
   },
-  "keywords": [],
+  "keywords": [
+    "typescript",
+    "event-driven",
+    "framework",
+    "decorator",
+    "event-dispatcher",
+    "lifecycle",
+    "dependency-injection",
+    "state-machine",
+    "session-management",
+    "interceptor",
+    "message-routing"
+  ],
   "author": "Aemeath Projects",
   "license": "MIT",
   "repository": {

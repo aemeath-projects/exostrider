@@ -41,51 +41,34 @@ export default defineConfig(
     rules: {
       '@typescript-eslint/naming-convention': [
         'error',
-        // 类型
+        // 类型声明
         { selector: 'typeParameter', format: ['PascalCase'] },
         { selector: 'class', format: ['PascalCase'] },
         { selector: 'interface', format: ['PascalCase'], custom: { regex: '^I[A-Z]', match: false } },
         { selector: 'typeAlias', format: ['PascalCase'] },
         { selector: 'enum', format: ['PascalCase'] },
-        { selector: 'enumMember', format: ['PascalCase'] },
-        // 函数 / 方法（装饰器工厂函数允许 PascalCase）
-        {
-          selector: 'function',
-          format: ['PascalCase'],
-          filter: {
-            regex:
-              '^(Service|Inject|Provide|Startup|Shutdown|Handler|OnCommand|OnRegex|OnKeyword|OnStartsWith|OnEndsWith|OnFullMatch|OnEvent|OnNotice|OnRequest|OnMessageSent|OnPoke|OnEssence|OnOffline|Scope|Permission|Priority|Interceptor|SettingNode)$',
-            match: true,
-          },
-        },
-        { selector: 'function', format: ['camelCase'] },
+        { selector: 'enumMember', format: ['UPPER_CASE'] },
+        // 函数
+        // 装饰器工厂函数惯例为 PascalCase
+        { selector: 'function', format: ['camelCase', 'PascalCase'] },
+        // 方法
         { selector: 'method', format: ['camelCase'] },
-        { selector: 'method', modifiers: ['private'], format: ['camelCase'], leadingUnderscore: 'require' },
-        // 框架内部（semi-public）方法允许 _ 前缀
-        { selector: 'method', format: ['camelCase'], leadingUnderscore: 'allow' },
         { selector: 'method', modifiers: ['requiresQuotes'], format: null },
+        { selector: 'method', modifiers: ['private'], format: ['camelCase'], leadingUnderscore: 'allow' },
         { selector: 'accessor', format: ['camelCase'] },
-        // ── 参数 ──
+        // 参数
+        // 允许 _ 前缀标记未使用参数
         { selector: 'parameter', format: ['camelCase'], leadingUnderscore: 'allow' },
-        // ── 变量 ──
+        // 变量
         { selector: 'variable', format: ['camelCase'] },
-        {
-          selector: 'variable',
-          modifiers: ['const'],
-          format: ['camelCase', 'UPPER_CASE'],
-        },
-        // 枚举对象（如 Permission、MessageScope、TimeoutMode）以 PascalCase 命名，允许例外
-        {
-          selector: 'variable',
-          modifiers: ['const'],
-          format: ['PascalCase'],
-          filter: { regex: '^(Permission|MessageScope|TimeoutMode)$', match: true },
-        },
-        // ── 属性 ──
+        // const：camelCase（局部）| UPPER_CASE（模块常量）| PascalCase（as const 对象）
+        { selector: 'variable', modifiers: ['const'], format: ['camelCase', 'UPPER_CASE', 'PascalCase'] },
+        // 属性
         { selector: 'property', format: ['camelCase'] },
-        { selector: 'property', modifiers: ['private'], format: ['camelCase'], leadingUnderscore: 'require' },
         { selector: 'property', modifiers: ['requiresQuotes'], format: null },
-        // ── 对象字面量属性（放行 snake_case API 参数）──
+        { selector: 'property', modifiers: ['private'], format: ['camelCase'], leadingUnderscore: 'allow' },
+        // 对象字面量属性不限制
+        // 兼容第三方 snake_case API
         { selector: 'objectLiteralProperty', format: null },
       ],
     },

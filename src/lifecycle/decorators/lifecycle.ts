@@ -1,6 +1,6 @@
 /** @Startup / @Shutdown 方法装饰器，标记服务的启动和关闭方法。 */
 
-import { SERVICE_STARTUP, SERVICE_SHUTDOWN } from './symbols.js'
+import { SERVICE_STARTUP, SERVICE_SHUTDOWN } from './symbols'
 
 /** 标记服务启动方法。每个类最多一个。 */
 export function Startup(_target: unknown, context: ClassMethodDecoratorContext): void {

@@ -94,7 +94,7 @@ describe('Exostrider facade', () => {
   })
 
   it('should accept a pre-built PinoLogger instance', async () => {
-    const { createLogger } = await import('../../src/logger/index.js')
+    const { createLogger } = await import('../../src/logger')
     const customLogger = createLogger({ level: 'error' })
     const exo = new Exostrider({
       echo: { config: { echoes: {} }, baseDir: process.cwd() },
@@ -139,6 +139,20 @@ describe('Exostrider facade', () => {
     })
     // bootstrap 前 —— 使用空映射的临时 dispatcher，不应抛出异常
     await expect(exo.dispatch({}, {})).resolves.toBeUndefined()
+  })
+
+  it('should shutdown and call session.cancelAll when session configured', async () => {
+    const exo = new Exostrider({
+      echo: { config: { echoes: {} }, baseDir: process.cwd() },
+      dispatch: { contextConfig: {} },
+      session: {
+        config: { sessionTimeout: 60 },
+        keyExtractor: () => 'key',
+      },
+    })
+    await exo.bootstrap()
+    expect(exo.session).toBeDefined()
+    await expect(exo.shutdown()).resolves.toBeUndefined()
   })
 
   it('should have a properly built dispatcher after bootstrap', async () => {

@@ -34,11 +34,11 @@ export async function loadEchoConfig(configPath: string): Promise<EchoConfig> {
     throw new Error(`无法加载 Echo 配置文件 "${resolved}"`, { cause: err })
   }
   if (!mod || typeof mod !== 'object' || !('default' in mod) || !mod.default) {
-    throw new Error(`Config file "${resolved}" must have a default export`)
+    throw new Error(`配置文件 "${resolved}" 必须包含 default 导出`)
   }
   const cfg = mod.default
   if (typeof cfg !== 'object' || !('echoes' in cfg)) {
-    throw new Error(`Config file "${resolved}" must export a valid EchoConfig object`)
+    throw new Error(`配置文件 "${resolved}" 的 default 导出必须是合法的 EchoConfig 对象`)
   }
   return cfg as EchoConfig
 }

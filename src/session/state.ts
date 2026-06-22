@@ -2,7 +2,7 @@
  * 状态定义与转换结果类型。
  */
 
-import type { SessionContext } from './context.js'
+import type { SessionContext } from './context'
 
 /** 状态定义接口。 */
 export interface StateDefinition<TContext = unknown> {

@@ -1,7 +1,7 @@
 /** @Handler 类装饰器：注册 Handler 类到全局 handlerRegistry。 */
 
-import { handlerRegistry } from '../registry.js'
-import type { HandlerOptions, HandlerRegistryData } from '../registry.js'
+import { handlerRegistry } from '../registry'
+import type { HandlerOptions, HandlerRegistryData } from '../registry'
 
 import {
   HANDLER_METHODS,
@@ -10,7 +10,7 @@ import {
   type MethodMetaEntry,
   type InterceptorEntry,
   type SettingNodeEntry,
-} from './symbols.js'
+} from './symbols'
 
 export type { HandlerOptions, HandlerRegistryData }
 

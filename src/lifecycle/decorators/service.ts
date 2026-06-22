@@ -1,6 +1,6 @@
 /** @Service 类装饰器：将类注册为可被编排器管理的服务。 */
 
-import type { ServiceEntry } from '../service-entry.js'
+import type { ServiceEntry } from '../service-entry'
 
 import {
   SERVICE_INJECTS,
@@ -9,7 +9,7 @@ import {
   SERVICE_SHUTDOWN,
   type InjectEntry,
   type ProvideEntry,
-} from './symbols.js'
+} from './symbols'
 
 /** 全局服务注册表，由 @Service 装饰器在 import 副作用阶段写入。 */
 export const serviceEntryRegistry = new Map<string, ServiceEntry>()

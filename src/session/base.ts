@@ -2,8 +2,8 @@
  * InteractiveSession 基类 —— 会话实例的核心抽象。
  */
 
-import type { SessionContext } from './context.js'
-import type { StateDefinition, StateTransitionResult } from './state.js'
+import type { SessionContext } from './context'
+import type { StateDefinition, StateTransitionResult } from './state'
 
 // 装饰器元数据键（与 decorators.ts 保持一致）
 export const SESSION_META_KEY = '__exostrider_session_meta__'

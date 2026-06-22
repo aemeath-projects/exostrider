@@ -4,8 +4,8 @@
 
 import type { Logger } from '../types'
 
-import type { ServiceEntry } from './service-entry.js'
-import type { ServiceRegistry } from './service-registry.js'
+import type { ServiceEntry } from './service-entry'
+import type { ServiceRegistry } from './service-registry'
 
 /**
  * 管理业务模块的启动与关闭。

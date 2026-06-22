@@ -2,7 +2,7 @@
  * 会话超时配置。
  */
 
-import { TimeoutMode } from './enums.js'
+import { TimeoutMode } from './enums'
 
 /** 会话超时配置。 */
 export interface TimeoutConfig {

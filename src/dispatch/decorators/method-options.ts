@@ -1,6 +1,6 @@
 /** Handler 方法级选项装饰器：@Permission、@Scope、@Priority。 */
 
-import { getOrCreateMethodEntry } from './utils.js'
+import { getOrCreateMethodEntry } from './utils'
 
 /** 设置方法处理器的权限级别（对应 Permission 枚举值）。 */
 export function Permission(level: number) {

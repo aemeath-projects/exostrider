@@ -66,7 +66,7 @@ bootstrap 流程：
 
 ### 重要约定
 
-- **ESM only**：所有导入路径在 `src/` 内使用 `.js` 后缀（tsup 编译后兼容）。
+- **ESM only**：`moduleResolution: bundler`，`src/` 内部导入路径**禁止**使用 `.js` 后缀（直接写 `'./foo'` 即可）。
 - **TC39 Stage 3 装饰器**：使用 `ClassMethodDecoratorContext`/`ClassDecoratorContext`，不是旧版 TypeScript 装饰器。
 - **全局单例隔离**：`Exostrider` 设计为进程单实例。隔离测试时，每次测试前必须调用 `handlerRegistry.clear()`。
 - **包导出路径**：`@aemeath-projects/exostrider`（主入口）、`/echo`、`/lifecycle`、`/dispatch`、`/session`、`/logger`、`/types`，均独立导出以支持 tree-shaking。

@@ -5,8 +5,8 @@
  */
 
 import type { MethodMetaEntry, InterceptorEntry, SettingNodeEntry } from './decorators'
-import { CompositeHandlerMapping } from './mapping.js'
-import { buildHandlerMethod } from './method-builder.js'
+import { CompositeHandlerMapping } from './mapping'
+import { buildHandlerMethod } from './method-builder'
 
 /** @Handler 类装饰器选项。 */
 export interface HandlerOptions {

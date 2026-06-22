@@ -8,7 +8,7 @@ import {
   STATE_META_KEY,
   INPUT_META_KEY,
   EXIT_META_KEY,
-} from '../../../src/session/base.js'
+} from '../../../src/session/base'
 
 describe('InteractiveSession 基类', () => {
   describe('buildStates()', () => {
@@ -128,6 +128,55 @@ describe('InteractiveSession 基类', () => {
 
       const states = buildStatesFromDecorators(session)
       expect(states[0]?.onExit).toBeDefined()
+    })
+
+    it('定义多个初始状态时抛出 Error', () => {
+      class MySession extends InteractiveSession {}
+      const session = new MySession()
+
+      function first() {
+        return Promise.resolve()
+      }
+      function second() {
+        return Promise.resolve()
+      }
+      Object.assign(first, { [STATE_META_KEY]: { id: 'first', initial: true } })
+      Object.assign(second, { [STATE_META_KEY]: { id: 'second', initial: true } })
+
+      const proto = Object.getPrototypeOf(session) as Record<string, unknown>
+      Object.defineProperty(proto, 'first', { value: first, configurable: true })
+      Object.defineProperty(proto, 'second', { value: second, configurable: true })
+
+      expect(() => buildStatesFromDecorators(session)).toThrow()
+
+      delete proto.first
+      delete proto.second
+    })
+
+    it('多个状态时非初始状态也被包含在结果中', () => {
+      class MySession extends InteractiveSession {}
+      const session = new MySession()
+
+      function askName() {
+        return Promise.resolve()
+      }
+      function askAge() {
+        return Promise.resolve()
+      }
+      Object.assign(askName, { [STATE_META_KEY]: { id: 'ask_name', initial: true } })
+      Object.assign(askAge, { [STATE_META_KEY]: { id: 'ask_age' } })
+
+      const proto = Object.getPrototypeOf(session) as Record<string, unknown>
+      Object.defineProperty(proto, 'askName', { value: askName, configurable: true })
+      Object.defineProperty(proto, 'askAge', { value: askAge, configurable: true })
+
+      const states = buildStatesFromDecorators(session)
+      expect(states).toHaveLength(2)
+      expect(states[0]?.id).toBe('ask_name')
+      expect(states[1]?.id).toBe('ask_age')
+
+      delete proto.askName
+      delete proto.askAge
     })
 
     it('使用函数调用风格的 @state 装饰器', () => {

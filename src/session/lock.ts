@@ -2,7 +2,7 @@
  * 会话锁提供者接口与内存实现。
  */
 
-import { DEFAULT_CANCEL_COMMANDS, DEFAULT_CONFIRM_COMMANDS } from './commands.js'
+import { DEFAULT_CANCEL_COMMANDS, DEFAULT_CONFIRM_COMMANDS } from './commands'
 
 /** 会话全局配置。 */
 export interface SessionConfig {

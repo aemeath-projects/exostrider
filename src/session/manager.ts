@@ -6,11 +6,11 @@
 
 import type { Logger } from '../types'
 
-import { type InteractiveSession, buildStatesFromDecorators } from './base.js'
-import { SessionContext } from './context.js'
-import type { LockProvider, SessionConfig } from './lock.js'
-import { getCancelCommands, InMemoryLockProvider } from './lock.js'
-import { StateMachine } from './state-machine.js'
+import { type InteractiveSession, buildStatesFromDecorators } from './base'
+import { SessionContext } from './context'
+import type { LockProvider, SessionConfig } from './lock'
+import { getCancelCommands, InMemoryLockProvider } from './lock'
+import { StateMachine } from './state-machine'
 
 /** 活跃会话记录。 */
 interface ActiveSession<TContext> {

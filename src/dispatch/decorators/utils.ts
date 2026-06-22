@@ -1,6 +1,6 @@
 /** Handler 装饰器共享工具函数。 */
 
-import { HANDLER_METHODS, type MethodMetaEntry } from './symbols.js'
+import { HANDLER_METHODS, type MethodMetaEntry } from './symbols'
 
 /**
  * 获取或创建指定方法的元数据条目。

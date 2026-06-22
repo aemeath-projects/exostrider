@@ -1,6 +1,6 @@
 /** @Provide 字段装饰器：声明额外暴露的服务 key，startup 完成后读取字段值注册到服务注册表。 */
 
-import { SERVICE_PROVIDES, type ProvideEntry } from './symbols.js'
+import { SERVICE_PROVIDES, type ProvideEntry } from './symbols'
 
 /**
  * 声明额外暴露的服务 key，编排器在 startup 完成后从字段读取实例并注册。

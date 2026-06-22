@@ -5,9 +5,13 @@
 import { describe, it, expect, vi } from 'vitest'
 
 import type { Context } from '../../src'
-import type { HandlerMapping, HandlerMethod } from '../../src/dispatch'
 import { EventDispatcher, CompositeHandlerMapping } from '../../src/dispatch'
-import type { HandlerInterceptor, ResolvedHandler } from '../../src/dispatch/interceptor.js'
+import type {
+  HandlerInterceptor,
+  HandlerMapping,
+  HandlerMethod,
+  ResolvedHandler,
+} from '../../src/dispatch'
 
 type SimpleEvent = Record<string, unknown>
 type SimpleApis = Record<string, unknown>

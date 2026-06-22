@@ -2,7 +2,7 @@
  * HandlerInterceptor 接口 —— Spring 风格的前置/后置/完成后钩子。
  */
 
-import type { Context } from './context.js'
+import type { Context } from './context'
 
 /** 已解析的处理器信息（供拦截器使用）。 */
 export interface ResolvedHandler {

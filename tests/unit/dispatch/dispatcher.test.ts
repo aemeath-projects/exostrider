@@ -2,8 +2,12 @@ import { describe, it, expect, vi } from 'vitest'
 
 import { Context } from '../../../src'
 import { EventDispatcher, FinishError } from '../../../src/dispatch'
-import type { HandlerMapping, HandlerMethod } from '../../../src/dispatch'
-import type { HandlerInterceptor, ResolvedHandler } from '../../../src/dispatch/interceptor.js'
+import type {
+  HandlerInterceptor,
+  HandlerMapping,
+  HandlerMethod,
+  ResolvedHandler,
+} from '../../../src/dispatch'
 
 interface SimpleEvent {
   text?: string
@@ -420,6 +424,48 @@ describe('EventDispatcher', () => {
       expect(calls).toEqual(['declPre', 'handler', 'declPost', 'declAfter'])
     })
 
+    it('声明式拦截器无 preHandle 时默认放行（handler 正常执行）', async () => {
+      const handlerFn = vi.fn().mockResolvedValue(undefined)
+
+      class NoPre {
+        async afterCompletion(): Promise<void> {}
+      }
+
+      const handlerMethod = makeHandlerMethod(handlerFn, {
+        interceptors: [{ interceptorClass: NoPre }],
+      })
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping: makeMockMapping(handlerMethod),
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({}, {})
+      expect(handlerFn).toHaveBeenCalledOnce()
+    })
+
+    it('声明式拦截器无 postHandle 时 handler 执行不报错', async () => {
+      const handlerFn = vi.fn().mockResolvedValue(undefined)
+
+      class NoPost {
+        async preHandle(): Promise<boolean> {
+          return true
+        }
+      }
+
+      const handlerMethod = makeHandlerMethod(handlerFn, {
+        interceptors: [{ interceptorClass: NoPost }],
+      })
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping: makeMockMapping(handlerMethod),
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({}, {})
+      expect(handlerFn).toHaveBeenCalledOnce()
+    })
+
     it('声明式拦截器 preHandle 返回 false 阻断执行', async () => {
       const handlerFn = vi.fn()
 
@@ -703,6 +749,32 @@ describe('EventDispatcher', () => {
 
       await dispatcher.dispatch({}, {})
       expect(handlerFn).toHaveBeenCalledOnce()
+      expect(afterCompletion).toHaveBeenCalledWith(
+        expect.any(Context),
+        expect.any(Object),
+        expect.any(Error),
+      )
+    })
+
+    it('全局拦截器 postHandle 抛出非 Error 对象时被封装为 Error 传给 afterCompletion', async () => {
+      const afterCompletion = vi.fn().mockResolvedValue(undefined)
+      const handlerFn = vi.fn().mockResolvedValue(undefined)
+
+      const interceptor: HandlerInterceptor<SimpleEvent, SimpleApis> = {
+        postHandle: async () => {
+          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          throw 'string error from postHandle'
+        },
+        afterCompletion,
+      }
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping: makeMockMapping(makeHandlerMethod(handlerFn)),
+        interceptors: [interceptor],
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({}, {})
       expect(afterCompletion).toHaveBeenCalledWith(
         expect.any(Context),
         expect.any(Object),

@@ -159,6 +159,31 @@ describe('SessionManager', () => {
       expect(manager.isActive('user:1')).toBe(false)
     })
 
+    it('onInput 抛出非 Error 对象时也调用 onError 并传入 Error 实例', async () => {
+      const onError = vi.fn().mockResolvedValue(undefined)
+      class NonErrorThrowSession extends InteractiveSession {
+        override buildStates(): StateDefinition[] {
+          return [
+            {
+              id: 'start',
+              onInput: async () => {
+                // eslint-disable-next-line @typescript-eslint/only-throw-error
+                throw 'string error'
+              },
+            },
+          ]
+        }
+        override async onError(_ctx: SessionContext, err: Error): Promise<void> {
+          onError(err)
+        }
+      }
+      const manager = makeManager()
+      await manager.start(new NonErrorThrowSession(), 'user:1')
+      await manager.processMessage('user:1', 'trigger')
+      expect(onError).toHaveBeenCalledWith(expect.any(Error))
+      expect(manager.isActive('user:1')).toBe(false)
+    })
+
     it('自定义取消命令被识别', async () => {
       const onCancel = vi.fn().mockResolvedValue(undefined)
       class CancelHookSession extends InteractiveSession {
@@ -206,6 +231,33 @@ describe('SessionManager', () => {
     it('cancel 不存在的 key 不报错', async () => {
       const manager = makeManager()
       await expect(manager.cancel('nonexistent')).resolves.toBeUndefined()
+    })
+
+    it('cancel 时 onCancel 钩子抛出后 logger.error 被调用且会话仍被清理', async () => {
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        fatal: vi.fn(),
+      }
+      class ThrowingCancelSession extends InteractiveSession {
+        override buildStates(): StateDefinition[] {
+          return [{ id: 'waiting' }]
+        }
+        override async onCancel(_ctx: SessionContext): Promise<void> {
+          throw new Error('onCancel failed')
+        }
+      }
+      const manager = new SessionManager<string>({
+        config: { sessionTimeout: 30 },
+        keyExtractor: (ctx) => ctx,
+        logger,
+      })
+      await manager.start(new ThrowingCancelSession(), 'user:1')
+      await manager.cancel('user:1')
+      expect(logger.error).toHaveBeenCalled()
+      expect(manager.isActive('user:1')).toBe(false)
     })
 
     it('cancel 后锁被释放，可以重新 start', async () => {

@@ -37,7 +37,7 @@ describe('ServiceRegistry', () => {
   })
 
   it('get: key 不存在时抛出 Error', () => {
-    expect(() => registry.get('baz')).toThrow(`Service "baz" not found in registry`)
+    expect(() => registry.get('baz')).toThrow(`服务 "baz" 未在注册表中找到`)
   })
 
   it('has: key 存在时返回 true', () => {

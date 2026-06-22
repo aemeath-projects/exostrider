@@ -139,7 +139,7 @@ describe('LifecycleOrchestrator — startup', () => {
     })
 
     await expect(orchestrator.startup([entry])).rejects.toThrow(
-      'Service "nonexistent_key" not found in registry',
+      '服务 "nonexistent_key" 未在注册表中找到',
     )
   })
 })

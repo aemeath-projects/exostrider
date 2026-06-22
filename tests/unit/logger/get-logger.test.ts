@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 import { createLogger, getLogger, setLogger } from '../../../src/logger'
-import type { PinoLogger } from '../../../src/logger/index.js'
+import type { PinoLogger } from '../../../src/logger'
 
 describe('getLogger', () => {
   it('should return a named child logger', () => {

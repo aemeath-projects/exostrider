@@ -8,8 +8,8 @@ import pinoPretty from 'pino-pretty'
 
 import type { Logger } from '../types'
 
-import { LogBroadcaster } from './broadcast.js'
-import type { LogEntry } from './broadcast.js'
+import { LogBroadcaster } from './broadcast'
+import type { LogEntry } from './broadcast'
 
 export type LogFormat = 'json' | 'console'
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'silent'
@@ -116,4 +116,4 @@ export function getLogger(name: string): Logger {
 }
 
 export type { Logger, PinoLogger, LogEntry }
-export { LogBroadcaster } from './broadcast.js'
+export { LogBroadcaster } from './broadcast'

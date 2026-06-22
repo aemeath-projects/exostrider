@@ -1,6 +1,6 @@
 /** Handler 方法路由装饰器：@OnCommand、@OnKeyword、@OnRegex 等。 */
 
-import { getOrCreateMethodEntry } from './utils.js'
+import { getOrCreateMethodEntry } from './utils'
 
 export interface OnCommandOptions {
   aliases?: string[]

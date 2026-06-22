@@ -2,8 +2,8 @@
  * 状态机引擎 —— 管理状态图和转换逻辑。
  */
 
-import type { SessionContext } from './context.js'
-import type { StateDefinition, StateTransitionResult } from './state.js'
+import type { SessionContext } from './context'
+import type { StateDefinition, StateTransitionResult } from './state'
 
 /** 状态机异常基类。 */
 export class StateMachineError extends Error {

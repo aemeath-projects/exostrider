@@ -6,12 +6,12 @@
 
 import type { Logger } from '../types'
 
-import type { Context, ContextConfig } from './context.js'
-import { Context as ContextImpl } from './context.js'
+import type { Context, ContextConfig } from './context'
+import { Context as ContextImpl } from './context'
 import type { InterceptorEntry } from './decorators'
-import { FinishError } from './errors.js'
-import type { HandlerInterceptor, ResolvedHandler } from './interceptor.js'
-import type { HandlerMapping, HandlerMethod } from './mapping.js'
+import { FinishError } from './errors'
+import type { HandlerInterceptor, ResolvedHandler } from './interceptor'
+import type { HandlerMapping, HandlerMethod } from './mapping'
 
 /** EventDispatcher 构造选项。 */
 export interface EventDispatcherOptions<TEvent, TApis> {

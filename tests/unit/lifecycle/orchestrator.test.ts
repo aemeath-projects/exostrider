@@ -398,7 +398,6 @@ describe('LifecycleOrchestrator — 依赖排序', () => {
 describe('LifecycleOrchestrator — 边界情况', () => {
   it('@Startup 方法名存在但实例上不是函数时抛出', async () => {
     class BrokenStartup {
-      // @ts-expect-error -- 故意设置为非函数以测试错误处理路径
       start = 'not a function'
     }
 
@@ -415,7 +414,6 @@ describe('LifecycleOrchestrator — 边界情况', () => {
 
   it('@Shutdown 方法名存在但实例上不是函数时 warn 并跳过', async () => {
     class BrokenShutdown {
-      // @ts-expect-error -- 故意设置为非函数以测试关闭路径的降级处理
       stop = 'not a function'
     }
 

@@ -37,7 +37,8 @@ function makeFieldCtx(
       has: () => false,
       get: () => undefined,
     },
-  } as ClassFieldDecoratorContext
+    addInitializer: () => {},
+  } as unknown as ClassFieldDecoratorContext
 }
 
 function makeMethodCtx(

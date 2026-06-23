@@ -221,7 +221,7 @@ describe('Service 装饰器元数据隔离', () => {
 describe('CompositeHandlerMapping 边界输入', () => {
   it('空文本 getText() 返回 undefined 时 getHandler 不崩溃', () => {
     const mapping = new CompositeHandlerMapping()
-    const ctx = new Context({}, {}, {})
+    const ctx = new Context<any, any>({}, {}, {})
     expect(() => mapping.getHandler(ctx)).not.toThrow()
     expect(mapping.getHandler(ctx)).toBeUndefined()
   })
@@ -229,21 +229,17 @@ describe('CompositeHandlerMapping 边界输入', () => {
   it('极长文本输入不崩溃', () => {
     const mapping = new CompositeHandlerMapping()
     const longText = 'a'.repeat(100_000)
-    const ctx = new Context(
-      { text: longText },
-      {},
-      { textExtractor: (e: { text?: string }) => e.text },
-    )
+    const ctx = new Context<any, any>({ text: longText }, {}, { textExtractor: (e: any) => e.text })
     expect(() => mapping.getHandler(ctx)).not.toThrow()
   })
 
   it('特殊字符文本不崩溃', () => {
     const mapping = new CompositeHandlerMapping()
     const specialText = '/<>{}[]!@#$%^&*()~`\n\t\r'
-    const ctx = new Context(
+    const ctx = new Context<any, any>(
       { text: specialText },
       {},
-      { textExtractor: (e: { text?: string }) => e.text },
+      { textExtractor: (e: any) => e.text },
     )
     expect(() => mapping.getHandler(ctx)).not.toThrow()
   })
@@ -265,15 +261,15 @@ describe('CompositeHandlerMapping 边界输入', () => {
     const mapping = new CompositeHandlerMapping('/')
     mapping.register(handler)
 
-    const ctxMatch = new Context(
+    const ctxMatch = new Context<any, any>(
       { text: '/hello' },
       {},
-      { textExtractor: (e: { text?: string }) => e.text },
+      { textExtractor: (e: any) => e.text },
     )
-    const ctxNoMatch = new Context(
+    const ctxNoMatch = new Context<any, any>(
       { text: '!hello' },
       {},
-      { textExtractor: (e: { text?: string }) => e.text },
+      { textExtractor: (e: any) => e.text },
     )
 
     expect(mapping.getHandler(ctxMatch)).toBeDefined()
@@ -296,7 +292,7 @@ describe('CompositeHandlerMapping 边界输入', () => {
     const mapping = new CompositeHandlerMapping('/')
     mapping.register(handler)
 
-    const ctx = new Context({ text: '' }, {}, { textExtractor: (e: { text?: string }) => e.text })
+    const ctx = new Context<any, any>({ text: '' }, {}, { textExtractor: (e: any) => e.text })
 
     expect(mapping.getHandler(ctx)).toBeUndefined()
   })

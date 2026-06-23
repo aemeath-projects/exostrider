@@ -30,13 +30,13 @@ function makeHandler(overrides: Partial<HandlerMethod> = {}): HandlerMethod {
 }
 
 /** 创建测试用 Context（带文本提取器） */
-function makeCtx(text?: string, scope?: string) {
+function makeCtx(text?: string, scope?: string): Context<any, any> {
   const event = { text }
-  const ctx = new Context(
+  const ctx = new Context<any, any>(
     event,
     {},
     {
-      textExtractor: (e: { text?: string }) => e.text,
+      textExtractor: (e: any) => e.text,
     },
   )
   if (scope) ctx.scope = scope
@@ -44,8 +44,8 @@ function makeCtx(text?: string, scope?: string) {
 }
 
 /** 创建事件 Context（无文本，带事件字段） */
-function makeEventCtx(eventObj: Record<string, unknown>) {
-  return new Context(
+function makeEventCtx(eventObj: Record<string, unknown>): Context<any, any> {
+  return new Context<any, any>(
     eventObj,
     {},
     {

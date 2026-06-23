@@ -210,7 +210,7 @@ describe('session 装饰器函数调用（oxc 风格）', () => {
 
     state('my_state', { initial: true })(myHandler)
 
-    expect((myHandler as Record<string, unknown>)[STATE_META_KEY]).toEqual({
+    expect((myHandler as unknown as Record<string, unknown>)[STATE_META_KEY]).toEqual({
       id: 'my_state',
       initial: true,
       description: undefined,
@@ -224,7 +224,9 @@ describe('session 装饰器函数调用（oxc 风格）', () => {
 
     onInput('my_state')(myInput)
 
-    expect((myInput as Record<string, unknown>)[INPUT_META_KEY]).toEqual({ stateId: 'my_state' })
+    expect((myInput as unknown as Record<string, unknown>)[INPUT_META_KEY]).toEqual({
+      stateId: 'my_state',
+    })
   })
 
   it('@onExit 在函数上附加 EXIT_META_KEY', () => {
@@ -234,6 +236,8 @@ describe('session 装饰器函数调用（oxc 风格）', () => {
 
     onExit('my_state')(myExit)
 
-    expect((myExit as Record<string, unknown>)[EXIT_META_KEY]).toEqual({ stateId: 'my_state' })
+    expect((myExit as unknown as Record<string, unknown>)[EXIT_META_KEY]).toEqual({
+      stateId: 'my_state',
+    })
   })
 })

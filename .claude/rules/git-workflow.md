@@ -13,17 +13,17 @@
 
 **type 枚举：**
 
-| type       | 用途                          |
-| ---------- | ----------------------------- |
-| `feat`     | 新功能                        |
-| `fix`      | Bug 修复                      |
-| `refactor` | 重构（不改变行为）            |
+| type       | 用途              |
+|------------|-----------------|
+| `feat`     | 新功能             |
+| `fix`      | Bug 修复          |
+| `refactor` | 重构（不改变行为）       |
 | `style`    | 格式化/代码风格（不改变逻辑） |
-| `docs`     | 文档变更                      |
-| `test`     | 测试相关                      |
-| `chore`    | 构建、依赖、CI/CD 等杂项      |
-| `perf`     | 性能优化                      |
-| `ci`       | CI/CD 配置变更                |
+| `docs`     | 文档变更            |
+| `test`     | 测试相关            |
+| `chore`    | 构建、依赖、CI/CD 等杂项 |
+| `perf`     | 性能优化            |
+| `ci`       | CI/CD 配置变更      |
 
 **scope 示例：** `dispatch`、`lifecycle`、`session`、`echo`、`logger`、`pool`、`types`、`core`、`integration`、`robustness`
 

@@ -45,9 +45,17 @@ export class ClientPool<
     this.dedup = options.dedup ? new DedupPipeline(options.dedup) : null
   }
 
-  /** 向连接池注册一个客户端适配器，并发射 `clientAdded` 事件。 */
+  /** 向连接池注册一个客户端适配器，并发射 `clientAdded` 事件。若适配器实现了 `wireToPool`，自动调用完成事件绑定；`wireToPool` 抛出时记录日志但不中止注册流程。 */
   addClient(adapter: ClientAdapter<TClient>, role: TRole): void {
     this.clients.set(adapter.id, { adapter, role, prevState: adapter.state })
+    if (adapter.wireToPool) {
+      try {
+        adapter.wireToPool(this, role)
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        this.options.logger?.error('addClient: wireToPool 调用失败', adapter.id, error.message)
+      }
+    }
     this.emit('clientAdded', adapter.id, role)
   }
 
@@ -55,7 +63,7 @@ export class ClientPool<
   async removeClient(clientId: string): Promise<void> {
     const entry = this.clients.get(clientId)
     if (!entry) {
-      this.options.logger?.warn('removeClient: client not found', clientId)
+      this.options.logger?.warn('removeClient: 客户端不存在', clientId)
       return
     }
     try {
@@ -92,11 +100,7 @@ export class ClientPool<
           await adapter.connect()
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err))
-          this.options.logger?.error(
-            'connectAll: failed to connect client',
-            adapter.id,
-            error.message,
-          )
+          this.options.logger?.error('connectAll: 客户端连接失败', adapter.id, error.message)
           this.emit('error', error, adapter.id)
         }
       }),
@@ -114,7 +118,7 @@ export class ClientPool<
       if (result.status === 'rejected') {
         const error =
           result.reason instanceof Error ? result.reason : new Error(String(result.reason))
-        this.options.logger?.error('disconnectAll: failed to disconnect client', error.message)
+        this.options.logger?.error('disconnectAll: 客户端断连失败', error.message)
       }
     }
   }
@@ -165,7 +169,7 @@ export class ClientPool<
             this.notifyStateChange(id, prev, current)
           }
         } catch {
-          this.options.logger?.error('healthCheck: client error', id)
+          this.options.logger?.error('healthCheck: 客户端异常', id)
           if (prev !== 'error') {
             entry.prevState = 'error'
             this.notifyStateChange(id, prev, 'error')

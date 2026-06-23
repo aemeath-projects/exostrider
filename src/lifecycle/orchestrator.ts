@@ -73,7 +73,7 @@ export class LifecycleOrchestrator<TMap extends Record<string, unknown> = Record
         }
 
         this._startedEntries.push({ entry, instance })
-        this._logger?.debug(`Started service: ${entry.name}`)
+        this._logger?.debug(`服务已启动: ${entry.name}`)
       }
 
       // 所有服务启动完成后冻结注册表，禁止运行时再次注册
@@ -102,9 +102,9 @@ export class LifecycleOrchestrator<TMap extends Record<string, unknown> = Record
           continue
         }
         await (method as () => Promise<void>).call(instance)
-        this._logger?.debug(`Shutdown service: ${entry.name}`)
+        this._logger?.debug(`服务已关闭: ${entry.name}`)
       } catch (err) {
-        this._logger?.error(`Error shutting down service ${entry.name}: ${String(err)}`)
+        this._logger?.error(`关闭服务 ${entry.name} 时发生错误: ${String(err)}`)
       }
     }
     this._startedEntries = []
@@ -125,6 +125,12 @@ export class LifecycleOrchestrator<TMap extends Record<string, unknown> = Record
     const provideMap = new Map<string, string>()
     for (const entry of entries) {
       for (const provide of entry.provides) {
+        const existing = provideMap.get(provide.serviceKey)
+        if (existing !== undefined) {
+          throw new Error(
+            `serviceKey "${provide.serviceKey}" 被多个服务提供: "${existing}" 与 "${entry.name}"`,
+          )
+        }
         provideMap.set(provide.serviceKey, entry.name)
       }
     }

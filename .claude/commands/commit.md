@@ -4,8 +4,8 @@
 
 ## 参数
 
-| 参数         | 类型   | 默认值 | 说明                                                                    |
-| ------------ | ------ | ------ | ----------------------------------------------------------------------- |
+| 参数           | 类型  | 默认值 | 说明                                     |
+|--------------|-----|-----|----------------------------------------|
 | `$ARGUMENTS` | 正整数 | 无限制 | 允许的最大提交次数。设为 `1` 时强制将所有变更合并为一次提交，不得拆分。 |
 
 **使用示例：**
@@ -35,15 +35,15 @@ git diff
 
 按以下维度对改动分组，判断是否需要拆分提交：
 
-| 组别      | type       | 典型改动                                   |
-| --------- | ---------- | ------------------------------------------ |
-| 新功能    | `feat`     | 新增装饰器、新增路由类型、新增模块能力     |
-| Bug 修复  | `fix`      | 修复拦截器逻辑、状态机转换、映射优先级错误 |
-| 重构      | `refactor` | 不改变行为的结构调整、提取公共工具函数     |
-| 样式/格式 | `style`    | eslint/prettier 自动格式化、空白行         |
-| 文档      | `docs`     | CLAUDE.md、README.md、JSDoc 注释           |
-| 测试      | `test`     | 新增/修改测试用例                          |
-| 配置/杂项 | `chore`    | 依赖更新、CI、.claude/ 配置、构建脚本      |
+| 组别     | type       | 典型改动                         |
+|--------|------------|------------------------------|
+| 新功能    | `feat`     | 新增装饰器、新增路由类型、新增模块能力          |
+| Bug 修复 | `fix`      | 修复拦截器逻辑、状态机转换、映射优先级错误        |
+| 重构     | `refactor` | 不改变行为的结构调整、提取公共工具函数          |
+| 样式/格式  | `style`    | eslint/prettier 自动格式化、空白行    |
+| 文档     | `docs`     | CLAUDE.md、README.md、JSDoc 注释 |
+| 测试     | `test`     | 新增/修改测试用例                    |
+| 配置/杂项  | `chore`    | 依赖更新、CI、.claude/ 配置、构建脚本     |
 
 **拆分原则（如违反则建议拆分）：**
 
@@ -76,24 +76,24 @@ git diff
 
 **scope 推断规则：**
 
-| 改动路径                                  | scope        |
-| ----------------------------------------- | ------------ |
-| `src/dispatch/`                           | `dispatch`   |
-| `src/lifecycle/`                          | `lifecycle`  |
-| `src/session/`                            | `session`    |
-| `src/echo/`                               | `echo`       |
-| `src/logger/`                             | `logger`     |
-| `src/pool/`                               | `pool`       |
-| `src/types/`                              | `types`      |
-| `src/index.ts`（门面类 `Exostrider`）    | `core`       |
-| `tests/unit/dispatch/`                    | `dispatch`   |
-| `tests/unit/lifecycle/`                   | `lifecycle`  |
-| `tests/unit/session/`                     | `session`    |
-| `tests/integration/`                      | `integration`|
-| `tests/robustness/`                       | `robustness` |
-| `.github/`, `*.config.*`, `pnpm-*.yaml`  | `chore`      |
-| `.claude/`                                | `chore`      |
-| `README.md`, `SECURITY.md`               | `docs`       |
+| 改动路径                                    | scope         |
+|-----------------------------------------|---------------|
+| `src/dispatch/`                         | `dispatch`    |
+| `src/lifecycle/`                        | `lifecycle`   |
+| `src/session/`                          | `session`     |
+| `src/echo/`                             | `echo`        |
+| `src/logger/`                           | `logger`      |
+| `src/pool/`                             | `pool`        |
+| `src/types/`                            | `types`       |
+| `src/index.ts`（门面类 `Exostrider`）        | `core`        |
+| `tests/unit/dispatch/`                  | `dispatch`    |
+| `tests/unit/lifecycle/`                 | `lifecycle`   |
+| `tests/unit/session/`                   | `session`     |
+| `tests/integration/`                    | `integration` |
+| `tests/robustness/`                     | `robustness`  |
+| `.github/`, `*.config.*`, `pnpm-*.yaml` | `chore`       |
+| `.claude/`                              | `chore`       |
+| `README.md`, `SECURITY.md`              | `docs`        |
 
 - 多模块同时改动：选主要改动的 scope，或 body 中列出涉及模块
 

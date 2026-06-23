@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 
 import { ClientPool } from '../../../src'
-import type { ClientState, RoleDefinition } from '../../../src/pool'
+import type { ClientState, PoolEmitter, RoleDefinition } from '../../../src/pool'
 
 function mockAdapter(id: string, initialState: ClientState = 'disconnected') {
   let state: ClientState = initialState
@@ -168,6 +168,92 @@ describe('ClientPool', () => {
       pool.addClient(mockAdapter('x'), 'master')
       expect(added).toEqual([['x', 'master']])
     })
+
+    it('适配器实现 wireToPool 时 addClient 自动调用', () => {
+      const pool = new ClientPool({ roles: ROLES })
+      const wireToPool = vi.fn()
+      const adapter = { ...mockAdapter('w'), wireToPool }
+      pool.addClient(adapter, 'master')
+      expect(wireToPool).toHaveBeenCalledOnce()
+      expect(wireToPool).toHaveBeenCalledWith(pool, 'master')
+    })
+
+    it('适配器未实现 wireToPool 时 addClient 正常完成不抛出', () => {
+      const pool = new ClientPool({ roles: ROLES })
+      expect(() => pool.addClient(mockAdapter('no-wire'), 'normal')).not.toThrow()
+    })
+
+    it('wireToPool 抛出 Error 时客户端仍注册成功且 clientAdded 正常发射', () => {
+      const pool = new ClientPool({ roles: ROLES })
+      const adapter = {
+        ...mockAdapter('err-wire'),
+        wireToPool: vi.fn(() => {
+          throw new Error('wire failed')
+        }),
+      }
+      const added: string[] = []
+      pool.on('clientAdded', (id) => added.push(id))
+
+      expect(() => pool.addClient(adapter, 'master')).not.toThrow()
+      expect(pool.getClient('err-wire')).toBe(adapter)
+      expect(added).toEqual(['err-wire'])
+    })
+
+    it('wireToPool 抛出非 Error 值时仍不中止注册', () => {
+      const pool = new ClientPool({ roles: ROLES })
+      const adapter = {
+        ...mockAdapter('str-wire'),
+        wireToPool: vi.fn(() => {
+          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          throw 'something went wrong'
+        }),
+      }
+      expect(() => pool.addClient(adapter, 'normal')).not.toThrow()
+      expect(pool.getClient('str-wire')).toBe(adapter)
+    })
+
+    it('wireToPool 抛出时有 logger 则调用 logger.error', () => {
+      const logger = { warn: vi.fn(), error: vi.fn() }
+      const pool = new ClientPool({ roles: ROLES, logger })
+      const adapter = {
+        ...mockAdapter('log-wire'),
+        wireToPool: vi.fn(() => {
+          throw new Error('wire error')
+        }),
+      }
+      pool.addClient(adapter, 'master')
+      expect(logger.error).toHaveBeenCalledWith(
+        'addClient: wireToPool 调用失败',
+        'log-wire',
+        'wire error',
+      )
+    })
+
+    it('wireToPool 收到的 PoolEmitter 可调用 emitFromClient 和 notifyStateChange', () => {
+      const pool = new ClientPool<object, TestRole, object>({ roles: ROLES })
+      let capturedEmitter: PoolEmitter | undefined
+
+      const adapter = {
+        ...mockAdapter('e', 'connected'),
+        wireToPool(emitter: PoolEmitter) {
+          capturedEmitter = emitter
+        },
+      }
+      pool.addClient(adapter, 'master')
+
+      const events: unknown[] = []
+      const changes: unknown[] = []
+      pool.on('event', (e) => events.push(e))
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      capturedEmitter!.emitFromClient('e', { msg: 'hi' }, 'master')
+      capturedEmitter!.notifyStateChange('e', 'disconnected', 'connected')
+
+      expect(events).toHaveLength(1)
+      expect(events[0]).toMatchObject({ sourceClientId: 'e', event: { msg: 'hi' } })
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['e', 'disconnected', 'connected'])
+    })
   })
 
   describe('removeClient 额外路径', () => {
@@ -193,7 +279,7 @@ describe('ClientPool', () => {
       const logger = { warn: vi.fn(), error: vi.fn() }
       const pool = new ClientPool({ roles: ROLES, logger })
       await pool.removeClient('nonexistent')
-      expect(logger.warn).toHaveBeenCalledWith('removeClient: client not found', 'nonexistent')
+      expect(logger.warn).toHaveBeenCalledWith('removeClient: 客户端不存在', 'nonexistent')
     })
   })
 
@@ -260,7 +346,7 @@ describe('ClientPool', () => {
       pool.on('error', () => {}) // 防止 error 事件无监听器时抛出
 
       await pool.connectAll()
-      expect(logger.error).toHaveBeenCalledWith('connectAll: failed to connect client', 'a', 'fail')
+      expect(logger.error).toHaveBeenCalledWith('connectAll: 客户端连接失败', 'a', 'fail')
     })
   })
 
@@ -390,7 +476,7 @@ describe('ClientPool', () => {
       await vi.advanceTimersByTimeAsync(1000)
       pool.stopHealthCheck()
 
-      expect(logger.error).toHaveBeenCalledWith('healthCheck: client error', 'a')
+      expect(logger.error).toHaveBeenCalledWith('healthCheck: 客户端异常', 'a')
     })
   })
 })

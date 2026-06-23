@@ -50,11 +50,9 @@ export class EchoLoader {
 
   /** 扫描所有已配置类型的目录，返回聚合的 EchoManifest。 */
   async discoverAll(): Promise<EchoManifest> {
-    const entries = new Map<string, readonly EchoEntry[]>()
-    for (const type of Object.keys(this._config.echoes)) {
-      const discovered = await this.discoverByType(type)
-      entries.set(type, discovered)
-    }
+    const types = Object.keys(this._config.echoes)
+    const results = await Promise.all(types.map((t) => this.discoverByType(t)))
+    const entries = new Map(types.map((t, i) => [t, results[i]]))
     return { entries }
   }
 
@@ -71,7 +69,7 @@ export class EchoLoader {
     try {
       await fs.access(absDir)
     } catch {
-      this._logger?.warn(`Echo directory not found: ${absDir}`)
+      this._logger?.warn(`Echo 扫描目录不存在: ${absDir}`)
       return []
     }
 
@@ -96,7 +94,7 @@ export class EchoLoader {
 
         results.push(entry)
       } catch {
-        this._logger?.warn(`Failed to load echo module: ${filePath}`)
+        this._logger?.warn(`加载模块失败: ${filePath}`)
       }
     }
 
@@ -126,7 +124,7 @@ export class EchoLoader {
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code
       if (code !== 'ENOENT' && code !== 'ENOTDIR') {
-        this._logger?.warn(`Failed to read directory ${dir}: ${String(err)}`)
+        this._logger?.warn(`读取目录失败: ${dir}: ${String(err)}`)
       }
       return files
     }

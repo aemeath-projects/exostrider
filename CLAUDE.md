@@ -23,6 +23,11 @@ pnpm test:coverage   # 生成覆盖率报告
 
 # 运行单个测试文件
 pnpm test -- tests/unit/dispatch/registry.test.ts
+
+# 版本发布
+pnpm bump:patch   # 补丁版本 (1.0.x)
+pnpm bump:minor   # 次要版本 (1.x.0)
+pnpm bump:major   # 主版本 (x.0.0)
 ```
 
 覆盖率阈值：functions 95%、lines 90%、branches 85%。
@@ -67,7 +72,7 @@ bootstrap 流程：
 
 **Pool** (`src/pool/`)
 - `ClientPool<TClient, TRole, TEvent>`：管理多个 `ClientAdapter` 实例，支持按角色（`RoleDefinition`）注册、连接/断开、健康检测。
-- `ClientAdapter`：由宿主实现的协议适配器接口，包含 `connect()`/`disconnect()`/`healthCheck()`。
+- `ClientAdapter`：由宿主实现的协议适配器接口，包含 `connect()`/`disconnect()`/`healthCheck()`。可选方法 `wireToPool?(pool: PoolEmitter, role: string): void` 在 `addClient()` 时由连接池自动调用，用于将客户端原生事件绑定到连接池；`PoolEmitter` 是为避免循环依赖而抽取的最小接口。
 - **路由策略**：`StickyStrategy`（同一 key 总路由到同一客户端）、`PriorityStrategy`（按 `priority` 数值升序优先）、`PriorityStickyStrategy`（两者结合）。`RoutingTable` 聚合策略并执行选择。
 - **去重流水线**（`DedupPipeline`）：基于滑动窗口（`windowMs` + `maxCacheSize`）过滤重复事件，Key 由 `DedupKeyExtractor` 提取；收到事件后 emit `AggregatedEvent`。
 - **可选模块**：在 `ExostriderOptions.pool` 中提供配置后，门面类自动在 bootstrap/shutdown 时管理连接生命周期。

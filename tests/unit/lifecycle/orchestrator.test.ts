@@ -284,7 +284,7 @@ describe('LifecycleOrchestrator — logger 集成', () => {
     const entry = makeEntry('logged_svc')
     await orchestrator.startup([entry])
 
-    expect(mockLogger.debug).toHaveBeenCalledWith('Started service: logged_svc')
+    expect(mockLogger.debug).toHaveBeenCalledWith('服务已启动: logged_svc')
   })
 })
 

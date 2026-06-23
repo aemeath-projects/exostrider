@@ -13,16 +13,16 @@
 
 本库分为六个独立模块，新文件必须放在对应模块目录下：
 
-| 模块        | 目录               | 职责                                              |
-| ----------- | ------------------ | ------------------------------------------------- |
-| Echo        | `src/echo/`        | 目录扫描与动态 import，触发装饰器副作用           |
-| Lifecycle   | `src/lifecycle/`   | 服务注册、拓扑排序、依赖注入、启动/关闭编排       |
-| Dispatch    | `src/dispatch/`    | 路由映射、Handler 实例化、拦截器链、事件分发      |
-| Session     | `src/session/`     | 会话管理、状态机、超时取消                        |
-| Logger      | `src/logger/`      | pino 封装、全局注入、日志广播                     |
-| Pool        | `src/pool/`        | 客户端连接池、角色路由、去重流水线、健康检测      |
-| 公共类型    | `src/types/`       | 泛型接口、共享类型定义，**禁止**包含业务逻辑      |
-| 门面        | `src/index.ts`     | `Exostrider` 类，组装六个模块，进程单实例         |
+| 模块        | 目录               | 职责                          |
+|-----------|------------------|-----------------------------|
+| Echo      | `src/echo/`      | 目录扫描与动态 import，触发装饰器副作用     |
+| Lifecycle | `src/lifecycle/` | 服务注册、拓扑排序、依赖注入、启动/关闭编排      |
+| Dispatch  | `src/dispatch/`  | 路由映射、Handler 实例化、拦截器链、事件分发  |
+| Session   | `src/session/`   | 会话管理、状态机、超时取消               |
+| Logger    | `src/logger/`    | pino 封装、全局注入、日志广播           |
+| Pool      | `src/pool/`      | 客户端连接池、角色路由、去重流水线、健康检测      |
+| 公共类型      | `src/types/`     | 泛型接口、共享类型定义，**禁止**包含业务逻辑    |
+| 门面        | `src/index.ts`   | `Exostrider` 类，组装六个模块，进程单实例 |
 
 - 模块之间只通过各自 `index.ts` 的导出 API 交互，**禁止**跨模块引用内部实现文件
 - `src/types/` 中的接口不得导入任何其他模块（避免循环依赖）
@@ -57,22 +57,22 @@
 
 ## 命名规范
 
-| 场景                         | 规则                              | 示例                                                    |
-| ---------------------------- | --------------------------------- | ------------------------------------------------------- |
-| 源文件名                     | `kebab-case.ts`                   | `method-builder.ts`, `service-registry.ts`              |
-| 测试文件名                   | `<name>.test.ts`                  | `mapping.test.ts`, `session-stress.test.ts`             |
-| 变量 / 方法                  | `camelCase`                       | `sessionKey`, `buildMappings()`                         |
-| 函数（含装饰器工厂）         | `camelCase` 或 `PascalCase`       | `createHandler()`, `@Handler`, `@OnCommand`, `@Inject`  |
-| 类                           | `PascalCase`                      | `EventDispatcher`, `LifecycleOrchestrator`              |
-| 接口                         | `PascalCase`，禁止 `I` 前缀       | `HandlerMapping`, `EchoConfig`                          |
-| 类型别名                     | `PascalCase`                      | `PermissionLevel`, `MessageScopeValue`                  |
-| 枚举名                       | `PascalCase`                      | `Permission`, `MessageScope`, `TimeoutMode`             |
-| 枚举成员                     | `UPPER_CASE`                      | `Permission.GROUP_ADMIN`, `TimeoutMode.SILENT`          |
-| const 常量（模块级原始值）   | `UPPER_CASE`                      | `DEFAULT_TIMEOUT_MS`, `DEFAULT_CANCEL_COMMANDS`         |
-| const 对象（`as const`）     | `PascalCase`                      | `Permission`, `MessageScope`, `TimeoutMode`             |
-| Symbol 变量                  | `UPPER_CASE`                      | `SERVICE_NAME`, `HANDLER_METHODS`, `HANDLER_NAME`       |
-| 泛型参数                     | `PascalCase`                      | `T`, `K`, `V`, `TEvent`, `TContext`                     |
-| 私有属性 / 方法              | `camelCase`，下划线前缀可选       | `_handleEvent()` 或 `handleEvent()`                     |
+| 场景                   | 规则                         | 示例                                                     |
+|----------------------|----------------------------|--------------------------------------------------------|
+| 源文件名                 | `kebab-case.ts`            | `method-builder.ts`, `service-registry.ts`             |
+| 测试文件名                | `<name>.test.ts`           | `mapping.test.ts`, `session-stress.test.ts`            |
+| 变量 / 方法              | `camelCase`                | `sessionKey`, `buildMappings()`                        |
+| 函数（含装饰器工厂）           | `camelCase` 或 `PascalCase` | `createHandler()`, `@Handler`, `@OnCommand`, `@Inject` |
+| 类                    | `PascalCase`               | `EventDispatcher`, `LifecycleOrchestrator`             |
+| 接口                   | `PascalCase`，禁止 `I` 前缀     | `HandlerMapping`, `EchoConfig`                         |
+| 类型别名                 | `PascalCase`               | `PermissionLevel`, `MessageScopeValue`                 |
+| 枚举名                  | `PascalCase`               | `Permission`, `MessageScope`, `TimeoutMode`            |
+| 枚举成员                 | `UPPER_CASE`               | `Permission.GROUP_ADMIN`, `TimeoutMode.SILENT`         |
+| const 常量（模块级原始值）     | `UPPER_CASE`               | `DEFAULT_TIMEOUT_MS`, `DEFAULT_CANCEL_COMMANDS`        |
+| const 对象（`as const`） | `PascalCase`               | `Permission`, `MessageScope`, `TimeoutMode`            |
+| Symbol 变量            | `UPPER_CASE`               | `SERVICE_NAME`, `HANDLER_METHODS`, `HANDLER_NAME`      |
+| 泛型参数                 | `PascalCase`               | `T`, `K`, `V`, `TEvent`, `TContext`                    |
+| 私有属性 / 方法            | `camelCase`，下划线前缀可选        | `_handleEvent()` 或 `handleEvent()`                     |
 
 ## 公共 API 文档
 

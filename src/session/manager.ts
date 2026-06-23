@@ -93,8 +93,9 @@ export class SessionManager<TContext = unknown> {
           await active.session.onTimeout?.(active.ctx)
         } catch (err) {
           this._logger?.error('onTimeout 钩子异常', err)
+        } finally {
+          await this._cleanup(key)
         }
-        await this._cleanup(key)
       })()
     }, timeoutMs)
 
@@ -175,9 +176,9 @@ export class SessionManager<TContext = unknown> {
       await active.session.onCancel?.(active.ctx)
     } catch (err) {
       this._logger?.error('onCancel 钩子异常', err)
+    } finally {
+      await this._cleanup(key)
     }
-
-    await this._cleanup(key)
   }
 
   /**

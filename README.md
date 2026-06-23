@@ -4,7 +4,7 @@
 
 ![NPM Version](https://img.shields.io/npm/v/%40aemeath-projects%2Fexostrider?style=for-the-badge)
 ![CI Status](https://img.shields.io/github/actions/workflow/status/aemeath-projects/exostrider/ci.yml?style=for-the-badge)
-![Codecov](https://img.shields.io/codecov/c/github/aemeath-projects/exostrider/master?style=for-the-badge)
+![Codecov](https://img.shields.io/codecov/c/github/aemeath-projects/exostrider?style=for-the-badge)
 ![License](https://img.shields.io/github/license/aemeath-projects/exostrider?style=for-the-badge)
 
 **Exostrider** | 隧者 是一个平台无关的事件驱动框架库，专为构建基于装饰器的消息处理系统而设计。

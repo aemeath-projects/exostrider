@@ -99,6 +99,10 @@
     "./logger": {
       "types": "./dist/logger/index.d.ts",
       "import": "./dist/logger/index.js"
+    },
+    "./pool": {
+      "types": "./dist/pool/index.d.ts",
+      "import": "./dist/pool/index.js"
     }
   },
   "devDependencies": {

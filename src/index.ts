@@ -59,10 +59,10 @@ export interface ExostriderOptions<
  *
  * 用法示例：
  * ```ts
- * const exo = new Exostrider({ echo: { ... }, dispatch: { ... } })
- * await exo.bootstrap()
- * await exo.dispatch(event, apis)
- * await exo.shutdown()
+ * const ex = new Exostrider({ echo: { ... }, dispatch: { ... } })
+ * await ex.bootstrap()
+ * await ex.dispatch(event, apis)
+ * await ex.shutdown()
  * ```
  */
 export class Exostrider<

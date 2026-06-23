@@ -9,6 +9,7 @@ export default defineConfig({
     'src/dispatch/index.ts',
     'src/session/index.ts',
     'src/logger/index.ts',
+    'src/pool/index.ts',
   ],
   outDir: 'dist',
   format: 'esm',

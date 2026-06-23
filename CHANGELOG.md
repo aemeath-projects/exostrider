@@ -2,6 +2,13 @@
 
 所有版本变更记录
 
+## [1.1.1](https://github.com/aemeath-projects/exostrider/compare/v1.1.0...v1.1.1) (2026-06-23)
+
+
+### 新功能
+
+* **pool:** 完善 Pool 生命周期与客户端事件绑定 ([4e079c5](https://github.com/aemeath-projects/exostrider/commit/4e079c54da0d69be34b03c5a0357a47e2c710040))
+
 ## [1.1.0](https://github.com/aemeath-projects/exostrider/compare/v1.0.1...v1.1.0) (2026-06-23)
 
 

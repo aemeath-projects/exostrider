@@ -29,7 +29,7 @@ pnpm test -- tests/unit/dispatch/registry.test.ts
 
 ## 架构
 
-本项目是一个**平台无关的事件驱动框架库**，泛型 `TEvent`/`TApis` 由宿主（调用方）传入。入口是 `Exostrider` 门面类，组装五个独立模块：
+本项目是一个**平台无关的事件驱动框架库**，泛型 `TEvent`/`TApis` 由宿主（调用方）传入。入口是 `Exostrider` 门面类，组装六个独立模块：
 
 ```
 bootstrap 流程：
@@ -38,9 +38,10 @@ bootstrap 流程：
   handlerRegistry.instantiate()   ← Handler 实例化 + 依赖注入
   handlerRegistry.buildMappings() ← 构建 CompositeHandlerMapping
   new EventDispatcher(mapping)    ← 分发器就绪
+  pool.connectAll() + startHealthCheck() ← 可选，pool 配置后自动执行
 ```
 
-### 五个模块
+### 六个模块
 
 **Echo** (`src/echo/`)
 - `EchoLoader`：按 `EchoConfig` 配置，扫描指定目录下的 `.ts/.js/.mts/.mjs` 文件并动态 import。import 是副作用——触发 `@Handler`/`@Service` 装饰器将元数据写入全局注册表。
@@ -64,9 +65,16 @@ bootstrap 流程：
 **Logger** (`src/logger/`)
 - 封装 pino，全局 `setLogger()` 统一注入到各模块。`LogBroadcaster` 允许外部订阅日志事件。
 
+**Pool** (`src/pool/`)
+- `ClientPool<TClient, TRole, TEvent>`：管理多个 `ClientAdapter` 实例，支持按角色（`RoleDefinition`）注册、连接/断开、健康检测。
+- `ClientAdapter`：由宿主实现的协议适配器接口，包含 `connect()`/`disconnect()`/`healthCheck()`。
+- **路由策略**：`StickyStrategy`（同一 key 总路由到同一客户端）、`PriorityStrategy`（按 `priority` 数值升序优先）、`PriorityStickyStrategy`（两者结合）。`RoutingTable` 聚合策略并执行选择。
+- **去重流水线**（`DedupPipeline`）：基于滑动窗口（`windowMs` + `maxCacheSize`）过滤重复事件，Key 由 `DedupKeyExtractor` 提取；收到事件后 emit `AggregatedEvent`。
+- **可选模块**：在 `ExostriderOptions.pool` 中提供配置后，门面类自动在 bootstrap/shutdown 时管理连接生命周期。
+
 ### 重要约定
 
 - **ESM only**：`moduleResolution: bundler`，`src/` 内部导入路径**禁止**使用 `.js` 后缀（直接写 `'./foo'` 即可）。
 - **TC39 Stage 3 装饰器**：使用 `ClassMethodDecoratorContext`/`ClassDecoratorContext`，不是旧版 TypeScript 装饰器。
 - **全局单例隔离**：`Exostrider` 设计为进程单实例。隔离测试时，每次测试前必须调用 `handlerRegistry.clear()`。
-- **包导出路径**：`@aemeath-projects/exostrider`（主入口）、`/echo`、`/lifecycle`、`/dispatch`、`/session`、`/logger`、`/types`，均独立导出以支持 tree-shaking。
+- **包导出路径**：`@aemeath-projects/exostrider`（主入口）、`/echo`、`/lifecycle`、`/dispatch`、`/session`、`/logger`、`/pool`、`/types`，均独立导出以支持 tree-shaking。

@@ -26,7 +26,11 @@
 - 库本身对 `TEvent` 泛型参数不做假设，但内部实现**禁止**将事件 payload 用于路径拼接、代码执行等危险操作
 - `SessionManager.processMessage()` 接收的消息应视为不可信外部输入，状态机逻辑不得因非法输入崩溃
 
-## 依赖安全
+## 连接池安全（ClientPool）
+
+- `ClientAdapter` 由宿主实现，库视其为不可信外部代码；`healthCheck()`、`connect()`、`disconnect()` 的抛出异常必须被 `ClientPool` 内部捕获并记录，不得透传为未处理拒绝
+- **禁止**将 `ClientAdapter.client`（原始协议客户端）直接暴露给 Handler 层；应通过 Pool 事件（`AggregatedEvent`）传递消息，由宿主控制客户端访问权限
+- 路由策略（`RoutingStrategy`）的输入来自事件 payload，**禁止**在策略实现中将路由 key 用于路径拼接或代码执行
 
 - 新增第三方依赖前，运行 `pnpm audit` 检查已知漏洞
 - **禁止**使用 `eval()`、`Function()` 构造器、`vm.runInNewContext()` 处理任何来自外部的不可信数据

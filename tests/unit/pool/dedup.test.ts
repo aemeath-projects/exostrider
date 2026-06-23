@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 
-import { DedupPipeline } from '../../../src/pool/dedup/pipeline.js'
+import { DedupPipeline } from '../../../src/pool'
 
 describe('DedupPipeline', () => {
   it('当 key 为 null 时透传（不去重）', () => {
@@ -36,7 +36,7 @@ describe('DedupPipeline', () => {
     vi.useRealTimers()
   })
 
-  it('缓存满时淘汰最旧条目', () => {
+  it('缓存满时淘汰最旧条目并写入新 key', () => {
     let key = 'key0'
     const pipeline = new DedupPipeline({
       keyExtractor: { extract: () => key },
@@ -44,15 +44,34 @@ describe('DedupPipeline', () => {
       maxCacheSize: 2,
     })
     key = 'key0'
-    expect(pipeline.process({})).toBe(true)
+    expect(pipeline.process({})).toBe(true) // cache: {key0}
     key = 'key1'
-    expect(pipeline.process({})).toBe(true) // 缓存满
+    expect(pipeline.process({})).toBe(true) // cache: {key0, key1}（满）
     key = 'key2'
-    expect(pipeline.process({})).toBe(true) // 淘汰 key0
+    expect(pipeline.process({})).toBe(true) // 淘汰 key0，写入 key2；cache: {key1, key2}
+    key = 'key2'
+    expect(pipeline.process({})).toBe(false) // key2 在窗口内 → 去重
     key = 'key0'
-    expect(pipeline.process({})).toBe(true) // key0 已被淘汰，重新进入
+    expect(pipeline.process({})).toBe(true) // key0 已被淘汰 → 淘汰 key1，写入 key0；cache: {key2, key0}
     key = 'key1'
-    expect(pipeline.process({})).toBe(false) // key1 还在缓存中
+    expect(pipeline.process({})).toBe(true) // key1 被淘汰后重新进入 → 淘汰 key2，写入 key1
+  })
+
+  it('缓存满时新 key 写入后，第二次出现被正确去重', () => {
+    let key = 'key0'
+    const pipeline = new DedupPipeline({
+      keyExtractor: { extract: () => key },
+      windowMs: 60000,
+      maxCacheSize: 2,
+    })
+    key = 'keyA'
+    expect(pipeline.process({})).toBe(true) // cache: {keyA}
+    key = 'keyB'
+    expect(pipeline.process({})).toBe(true) // cache: {keyA, keyB}（满）
+    key = 'keyC'
+    expect(pipeline.process({})).toBe(true) // 淘汰 keyA，写入 keyC；cache: {keyB, keyC}
+    key = 'keyC'
+    expect(pipeline.process({})).toBe(false) // Bug 已修复：第二次同 key 应被阻止
   })
 
   it('不同 key 不互相干扰', () => {

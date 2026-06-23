@@ -4,13 +4,13 @@ import { createLogger, getLogger, setLogger } from '../../../src/logger'
 import type { PinoLogger } from '../../../src/logger'
 
 describe('getLogger', () => {
-  it('should return a named child logger', () => {
+  it('返回具名子 logger', () => {
     const log = getLogger('test-module')
     expect(log).toBeDefined()
     expect(typeof log.info).toBe('function')
   })
 
-  it('should return same proxy for same name', () => {
+  it('相同名称返回同一代理对象', () => {
     const a = getLogger('same')
     const b = getLogger('same')
     expect(a).toBe(b)
@@ -18,7 +18,7 @@ describe('getLogger', () => {
 })
 
 describe('setLogger', () => {
-  it('should replace the global logger', () => {
+  it('替换全局 logger', () => {
     const custom = createLogger({ level: 'debug' })
     setLogger(custom)
     const child = getLogger('after-set')
@@ -49,7 +49,7 @@ describe('setLogger', () => {
     expect(typeof level).toBe('string')
   })
 
-  it('should proxy calls to new logger after setLogger', () => {
+  it('setLogger 后代理调用新 logger', () => {
     const infoSpy = vi.fn()
     const mockChild = {
       level: 'info',

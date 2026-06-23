@@ -11,7 +11,7 @@ module.exports = {
     { type: 'feat', section: '新功能' },
     { type: 'fix', section: 'Bug 修复' },
     { type: 'perf', section: '性能优化' },
-    { type: 'refactor', section: '♻重构' },
+    { type: 'refactor', section: '重构' },
     { type: 'docs', section: '文档' },
     { type: 'style', section: '代码风格', hidden: true },
     { type: 'test', section: '测试', hidden: true },

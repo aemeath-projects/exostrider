@@ -34,6 +34,11 @@ export class EventDispatcher<TEvent = unknown, TApis = unknown> {
   private readonly _interceptors: HandlerInterceptor<TEvent, TApis>[]
   private readonly _contextConfig: ContextConfig<TEvent, TApis>
   private readonly _logger: Logger | undefined
+  // 声明式拦截器实例缓存：以 HandlerMethod.interceptors 数组引用为 key，避免每次分发重新实例化
+  private readonly _declInterceptorCache = new WeakMap<
+    readonly InterceptorEntry[],
+    HandlerInterceptor<TEvent, TApis>[]
+  >()
 
   constructor(options: EventDispatcherOptions<TEvent, TApis>) {
     this._mapping = options.mapping
@@ -87,8 +92,8 @@ export class EventDispatcher<TEvent = unknown, TApis = unknown> {
       priority: handler.priority,
     }
 
-    // 实例化声明式拦截器
-    const declInterceptors = this._instantiateInterceptors(handler.interceptors)
+    // 获取（或缓存复用）声明式拦截器实例
+    const declInterceptors = this._getOrCreateDeclInterceptors(handler.interceptors)
 
     let handlerError: Error | undefined
 
@@ -134,7 +139,7 @@ export class EventDispatcher<TEvent = unknown, TApis = unknown> {
     }
 
     if (declBlocked || handlerError !== undefined) {
-      await this._runAfterCompletion(this._interceptors, ctx, resolvedHandler, handlerError)
+      await this._runAfterCompletion(executedGlobal, ctx, resolvedHandler, handlerError)
       await this._runAfterCompletion(executedDecl, ctx, resolvedHandler, handlerError)
       return
     }
@@ -204,12 +209,16 @@ export class EventDispatcher<TEvent = unknown, TApis = unknown> {
     }
   }
 
-  /** 按需实例化声明式拦截器列表。 */
-  private _instantiateInterceptors(
+  /** 按需实例化声明式拦截器列表，结果缓存到 WeakMap 中复用。 */
+  private _getOrCreateDeclInterceptors(
     entries: readonly InterceptorEntry[],
   ): HandlerInterceptor<TEvent, TApis>[] {
-    return entries.map(
+    const cached = this._declInterceptorCache.get(entries)
+    if (cached !== undefined) return cached
+    const instances = entries.map(
       (entry) => new entry.interceptorClass(entry.options) as HandlerInterceptor<TEvent, TApis>,
     )
+    this._declInterceptorCache.set(entries, instances)
+    return instances
   }
 }

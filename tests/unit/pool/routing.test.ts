@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 
-import { PriorityStickyStrategy } from '../../../src/pool/routing/priority-sticky.js'
-import { PriorityStrategy } from '../../../src/pool/routing/priority.js'
-import { StickyStrategy } from '../../../src/pool/routing/sticky.js'
-import { RoutingTable } from '../../../src/pool/routing/table.js'
+import {
+  PriorityStickyStrategy,
+  PriorityStrategy,
+  StickyStrategy,
+  RoutingTable,
+} from '../../../src/pool'
 
 const cands = (ids: string[], priorities?: number[]) =>
   ids.map((clientId, i) => ({
@@ -30,7 +32,7 @@ describe('StickyStrategy', () => {
 
   it('候选为空时抛出', () => {
     const s = new StickyStrategy()
-    expect(() => s.select('t', [], undefined)).toThrow('No available candidates')
+    expect(() => s.select('t', [], undefined)).toThrow('没有可用的客户端候选')
   })
 })
 
@@ -88,6 +90,16 @@ describe('RoutingTable', () => {
     table.resolve('g2', cands(['a']))
     table.invalidate('a')
     expect(table.getActiveClient('g1')).toBeUndefined()
+    expect(table.getActiveClient('g2')).toBeUndefined()
+  })
+
+  it('invalidate 只清除指定客户端的映射，保留其他客户端', () => {
+    const strategy = { select: vi.fn().mockReturnValueOnce('a').mockReturnValueOnce('b') }
+    const table = new RoutingTable({ strategy, keySerializer: String })
+    table.resolve('g1', cands(['a']))
+    table.resolve('g2', cands(['b']))
+    table.invalidate('b')
+    expect(table.getActiveClient('g1')).toBe('a')
     expect(table.getActiveClient('g2')).toBeUndefined()
   })
 

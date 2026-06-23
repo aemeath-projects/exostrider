@@ -25,7 +25,7 @@
 | `perf`     | 性能优化                      |
 | `ci`       | CI/CD 配置变更                |
 
-**scope 示例：** `dispatch`、`lifecycle`、`session`、`echo`、`logger`、`types`、`core`、`integration`、`robustness`
+**scope 示例：** `dispatch`、`lifecycle`、`session`、`echo`、`logger`、`pool`、`types`、`core`、`integration`、`robustness`
 
 **description：** 使用中文，祈使语气，不超过 72 字符，不加句号。
 

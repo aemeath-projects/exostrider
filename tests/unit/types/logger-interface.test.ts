@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 
 import type { Logger } from '../../../src/types'
 
-describe('Logger interface', () => {
-  it('should be satisfiable by a minimal object', () => {
+describe('Logger 接口', () => {
+  it('可由包含 debug/info/warn/error 方法的最简对象满足', () => {
     const logger: Logger = {
       debug: () => {},
       info: () => {},

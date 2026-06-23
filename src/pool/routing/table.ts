@@ -1,4 +1,4 @@
-import type { RoutingCandidate, RoutingStrategy } from './strategy.js'
+import type { RoutingCandidate, RoutingStrategy } from './strategy'
 
 /** RoutingTable 构造选项。 */
 export interface RoutingTableOptions<TTarget> {

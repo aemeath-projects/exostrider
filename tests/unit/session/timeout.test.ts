@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { TimeoutMode } from '../../../src/session/enums'
-import { makeTimeoutConfig, resolveTimeout } from '../../../src/session/timeout'
+import { TimeoutMode, makeTimeoutConfig, resolveTimeout } from '../../../src/session'
 
 describe('makeTimeoutConfig', () => {
   it('返回默认配置', () => {

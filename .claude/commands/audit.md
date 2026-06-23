@@ -8,6 +8,7 @@
 - `/exostrider:audit dispatch` — 仅审计 dispatch 模块
 - `/exostrider:audit lifecycle` — 仅审计 lifecycle 模块
 - `/exostrider:audit session` — 仅审计 session 模块
+- `/exostrider:audit pool` — 仅审计 pool 模块
 - `/exostrider:audit tests` — 仅审计测试文件
 
 当前范围：$ARGUMENTS（为空则默认 `all`）
@@ -46,7 +47,7 @@
 
 **规则违反（Info）**
 
-- 模块内导入缺少 `.js` 后缀（Node ESM 要求，`src/` 内部相互引用必须带 `.js`）
+- `src/` 内部模块导入**使用了** `.js` 后缀（`moduleResolution: bundler` 下禁止使用扩展名，直接写 `'./foo'` 即可）
 - 类型专用导入未使用 `import type`
 - 公共 API（`index.ts` 导出的类、方法）缺少 JSDoc 文档
 - 装饰器使用了未从 `@aemeath-projects/exostrider` 导出的内部 symbol
@@ -57,7 +58,7 @@
 
 **缺陷风险（Warning）**
 
-- 集成测试（`tests/integration/`）未覆盖完整 bootstrap 流程（`Echo → Lifecycle → Dispatch`）
+- 集成测试（`tests/integration/`）未覆盖完整 bootstrap 流程（`Echo → Lifecycle → Dispatch → Pool`）
 - 并发鲁棒性测试（`tests/robustness/`）未验证 `handlerRegistry.clear()` 的线程安全性
 - `session-stress` 测试未验证超时自动取消行为
 

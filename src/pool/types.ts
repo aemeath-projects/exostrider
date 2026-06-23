@@ -1,5 +1,5 @@
-import type { ClientState } from './adapter.js'
-import type { DedupKeyExtractor } from './dedup/extractor.js'
+import type { ClientState } from './adapter'
+import type { DedupKeyExtractor } from './dedup/extractor'
 
 /** 聚合后的事件信封。 */
 export interface AggregatedEvent<TEvent> {
@@ -19,8 +19,6 @@ export interface DedupOptions<TEvent> {
 /** 健康检测配置。 */
 export interface HealthCheckOptions {
   intervalMs: number
-  timeoutMs: number
-  unhealthyThreshold: number
 }
 
 /** 连接池事件映射。 */

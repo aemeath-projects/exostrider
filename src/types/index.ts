@@ -10,7 +10,8 @@ export interface Logger {
 
 /** 类型安全的 EventEmitter 封装，基于 Node.js EventEmitter + 泛型重载。 */
 export class TypedEventEmitter<
-  TEvents extends { [K in keyof TEvents]: (...args: unknown[]) => void },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  TEvents extends { [K in keyof TEvents]: (...args: any[]) => void },
 > extends EventEmitter {
   declare on: <K extends keyof TEvents & string>(event: K, listener: TEvents[K]) => this
   declare once: <K extends keyof TEvents & string>(event: K, listener: TEvents[K]) => this

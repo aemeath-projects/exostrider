@@ -13,6 +13,16 @@ import type { EchoConfig, EchoValidator } from './echo'
 import { LifecycleOrchestrator, ServiceRegistry, serviceEntryRegistry } from './lifecycle'
 import { createLogger, setLogger, logBroadcaster, LogBroadcaster } from './logger'
 import type { CreateLoggerOptions } from './logger'
+import { ClientPool } from './pool'
+import type {
+  ClientPoolOptions,
+  RoleDefinition,
+  RoleCapability,
+  HealthCheckOptions,
+  DedupOptions,
+  AggregatedEvent,
+  PoolEventMap,
+} from './pool'
 import { SessionManager } from './session'
 import type { SessionConfig, LockProvider } from './session'
 
@@ -22,6 +32,9 @@ export type { ContextConfig, HandlerInterceptor }
 export type { SessionConfig, LockProvider }
 export type { CreateLoggerOptions, PinoLogger }
 export { LogBroadcaster }
+export { ClientPool }
+export type { ClientPoolOptions, RoleDefinition, RoleCapability }
+export type { HealthCheckOptions, DedupOptions, AggregatedEvent, PoolEventMap }
 
 /** Exostrider 构造选项。 */
 export interface ExostriderOptions<
@@ -30,6 +43,10 @@ export interface ExostriderOptions<
   // TServiceMap 由 Exostrider 类使用，接口中仅占位确保泛型约束对齐
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   TServiceMap extends Record<string, unknown> = Record<string, unknown>,
+  // TPoolClient/TPoolRole 仅在 pool 字段中使用，赋予默认值保证向后兼容
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  TPoolClient = object,
+  TPoolRole extends string = string,
 > {
   readonly echo: {
     readonly config: EchoConfig
@@ -44,6 +61,21 @@ export interface ExostriderOptions<
     readonly config: SessionConfig
     readonly lockProvider?: LockProvider
     readonly keyExtractor: (ctx: Context<TEvent, TApis>) => string
+  }
+  /**
+   * 可选连接池配置。提供后，Exostrider 自动管理 ClientPool 生命周期：
+   * - bootstrap() 时调用 connectAll()，并按 healthCheck.intervalMs 启动健康检测
+   * - shutdown() 时调用 stopHealthCheck() + disconnectAll()
+   *
+   * logger 字段由门面类自动注入，无需用户传入。
+   */
+  readonly pool?: {
+    readonly options: Omit<ClientPoolOptions<TPoolRole, TEvent>, 'logger'>
+    /**
+     * 是否在 bootstrap() 时自动连接所有客户端，默认 true。
+     * 设为 false 可用于测试场景或手动控制连接时机。
+     */
+    readonly autoConnect?: boolean
   }
   /**
    * 日志器配置：
@@ -69,20 +101,23 @@ export class Exostrider<
   TEvent = unknown,
   TApis = unknown,
   TServiceMap extends Record<string, unknown> = Record<string, unknown>,
+  TPoolClient = object,
+  TPoolRole extends string = string,
 > {
   readonly echo: EchoLoader
   readonly lifecycle: LifecycleOrchestrator<TServiceMap>
   readonly registry: ServiceRegistry<TServiceMap>
   readonly handlerRegistry: HandlerRegistry<TEvent, TApis>
   readonly session?: SessionManager<Context<TEvent, TApis>>
+  readonly pool?: ClientPool<TPoolClient, TPoolRole, TEvent>
   readonly logger: PinoLogger
   readonly logBroadcaster: LogBroadcaster
 
   // dispatcher 在 bootstrap 后才可用，初始为 null
   private _dispatcher: EventDispatcher<TEvent, TApis> | null = null
-  private readonly _options: ExostriderOptions<TEvent, TApis, TServiceMap>
+  private readonly _options: ExostriderOptions<TEvent, TApis, TServiceMap, TPoolClient, TPoolRole>
 
-  constructor(options: ExostriderOptions<TEvent, TApis, TServiceMap>) {
+  constructor(options: ExostriderOptions<TEvent, TApis, TServiceMap, TPoolClient, TPoolRole>) {
     this._options = options
 
     // 1. 确定 logger
@@ -108,6 +143,7 @@ export class Exostrider<
     // - 预期使用模式为单实例：整个进程只创建一个 Exostrider。
     // - 若需要隔离（如测试场景），在创建新实例前调用 handlerRegistry.clear() 清空注册表。
     this.handlerRegistry = handlerRegistry as unknown as HandlerRegistry<TEvent, TApis>
+    this.handlerRegistry.setLogger(this.logger)
     this.echo = new EchoLoader(options.echo.config, options.echo.baseDir, {
       validators: options.echo.validators,
       logger: this.logger,
@@ -119,6 +155,14 @@ export class Exostrider<
         config: options.session.config,
         lockProvider: options.session.lockProvider,
         keyExtractor: options.session.keyExtractor,
+        logger: this.logger,
+      })
+    }
+
+    // 4. 可选 pool（logger 自动注入）
+    if (options.pool) {
+      this.pool = new ClientPool<TPoolClient, TPoolRole, TEvent>({
+        ...options.pool.options,
         logger: this.logger,
       })
     }
@@ -172,6 +216,17 @@ export class Exostrider<
       contextConfig: this._options.dispatch.contextConfig,
       logger: this.logger,
     })
+
+    // 6. 可选 pool —— 连接所有客户端并按配置启动健康检测
+    if (this.pool && this._options.pool) {
+      if (this._options.pool.autoConnect !== false) {
+        await this.pool.connectAll()
+      }
+      const interval = this._options.pool.options.healthCheck?.intervalMs
+      if (interval !== undefined) {
+        this.pool.startHealthCheck(interval)
+      }
+    }
   }
 
   /**
@@ -193,6 +248,10 @@ export class Exostrider<
   async shutdown(): Promise<void> {
     if (this.session) {
       await this.session.cancelAll()
+    }
+    if (this.pool) {
+      this.pool.stopHealthCheck()
+      await this.pool.disconnectAll()
     }
     await this.lifecycle.shutdown()
     this._dispatcher = null

@@ -4,6 +4,8 @@
  * 泛型 TEvent/TApis 供 buildMappings 用于生成类型安全的 CompositeHandlerMapping。
  */
 
+import type { Logger } from '../types'
+
 import type { MethodMetaEntry, InterceptorEntry, SettingNodeEntry } from './decorators'
 import { CompositeHandlerMapping } from './mapping'
 import { buildHandlerMethod } from './method-builder'
@@ -32,6 +34,12 @@ export interface HandlerRegistryData {
 export class HandlerRegistry<TEvent = unknown, TApis = unknown> {
   private readonly _entries: HandlerRegistryData[] = []
   private readonly _instances = new Map<string, unknown>()
+  private _logger?: Logger
+
+  /** 注入可选 logger，供 buildMappings 记录无效方法警告。 */
+  setLogger(logger: Logger): void {
+    this._logger = logger
+  }
 
   /** 注册 handler。名称相同时覆盖。 */
   register(data: HandlerRegistryData): void {
@@ -121,8 +129,10 @@ export class HandlerRegistry<TEvent = unknown, TApis = unknown> {
         try {
           const handlerMethod = buildHandlerMethod(data, resolvedEntry, instance as object)
           composite.register(handlerMethod)
-        } catch {
-          // 忽略无效方法（如方法不存在），继续注册其他方法
+        } catch (err) {
+          this._logger?.warn(
+            `buildMappings: handler "${data.options.name}" 方法 "${String(methodEntry.methodName)}" 注册失败，已跳过: ${String(err)}`,
+          )
         }
       }
     }

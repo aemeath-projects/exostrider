@@ -83,6 +83,7 @@ git diff
 | `src/session/`                            | `session`    |
 | `src/echo/`                               | `echo`       |
 | `src/logger/`                             | `logger`     |
+| `src/pool/`                               | `pool`       |
 | `src/types/`                              | `types`      |
 | `src/index.ts`（门面类 `Exostrider`）    | `core`       |
 | `tests/unit/dispatch/`                    | `dispatch`   |

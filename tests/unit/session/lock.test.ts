@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
-import { InMemoryLockProvider } from '../../../src/session'
-import { getCancelCommands, getConfirmCommands } from '../../../src/session/lock'
+import { InMemoryLockProvider, getCancelCommands, getConfirmCommands } from '../../../src/session'
 
 describe('InMemoryLockProvider', () => {
   let provider: InMemoryLockProvider

@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { LogBroadcaster } from '../../../src'
 
 describe('LogBroadcaster', () => {
-  it('should emit log events to subscribers', () => {
+  it('向订阅者发射日志事件', () => {
     const broadcaster = new LogBroadcaster()
     const listener = vi.fn()
     broadcaster.on('log', listener)
@@ -14,14 +14,14 @@ describe('LogBroadcaster', () => {
     expect(listener).toHaveBeenCalledWith(entry)
   })
 
-  it('should not throw when no subscribers', () => {
+  it('无订阅者时不抛出错误', () => {
     const broadcaster = new LogBroadcaster()
     expect(() =>
       broadcaster.broadcast({ level: 30, time: Date.now(), msg: 'no listener' }),
     ).not.toThrow()
   })
 
-  it('should support multiple subscribers', () => {
+  it('支持多个订阅者', () => {
     const broadcaster = new LogBroadcaster()
     const listener1 = vi.fn()
     const listener2 = vi.fn()

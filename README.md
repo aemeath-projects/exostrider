@@ -1,6 +1,6 @@
 # Aemeath Exostrider
 
-隧者：TypeScript 事件驱动框架，内置装饰器路由、服务生命周期编排、会话状态机与结构化日志
+隧者：TypeScript 事件驱动框架，内置装饰器路由、服务生命周期编排、会话状态机、客户端池管理与结构化日志
 
 ![NPM Version](https://img.shields.io/npm/v/%40aemeath-projects%2Fexostrider?style=for-the-badge)
 ![CI Status](https://img.shields.io/github/actions/workflow/status/aemeath-projects/exostrider/ci.yml?style=for-the-badge)
@@ -9,7 +9,7 @@
 
 **Exostrider** | 隧者 是一个平台无关的事件驱动框架库，专为构建基于装饰器的消息处理系统而设计。
 
-框架由五个解耦模块组成：
+框架由六个解耦模块组成：
 
 | 模块            | 功能                                             |
 |---------------|------------------------------------------------|
@@ -18,6 +18,7 @@
 | **Dispatch**  | 七种路由策略（命令/正则/关键词等）的复合映射，支持拦截器链                 |
 | **Session**   | 基于有限状态机的会话管理，支持超时自动取消与并发锁                      |
 | **Logger**    | pino 封装，全局注入，支持外部订阅日志事件                        |
+| **Pool**      | 客户端连接池管理，支持多角色、负载均衡、健康检测与事件去重                |
 
 通过 `Exostrider` 门面类一行完成 bootstrap，泛型 `TEvent`/`TApis` 由宿主（调用方）传入，实现零耦合接入任意平台。
 

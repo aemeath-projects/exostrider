@@ -3,6 +3,7 @@
  */
 
 import type { Context } from './context'
+import type { BotCapability } from './decorators'
 
 /** 已解析的处理器信息（供拦截器使用）。 */
 export interface ResolvedHandler {
@@ -10,6 +11,8 @@ export interface ResolvedHandler {
   readonly methodName: string | symbol
   readonly handlerName: string
   readonly priority: number
+  /** Bot 在群内需要具备的权限等级（null 表示无要求）。 */
+  readonly requiredBotCapability: BotCapability | null
 }
 
 /**

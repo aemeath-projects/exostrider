@@ -256,6 +256,7 @@ describe('CompositeHandlerMapping 边界输入', () => {
       mappingType: 'command' as const,
       trigger: { cmd: 'hello', aliases: new Set<string>() },
       interceptors: [],
+      requiredBotCapability: null,
     }
 
     const mapping = new CompositeHandlerMapping('/')
@@ -287,6 +288,7 @@ describe('CompositeHandlerMapping 边界输入', () => {
       mappingType: 'command' as const,
       trigger: { cmd: 'cmd', aliases: new Set<string>() },
       interceptors: [],
+      requiredBotCapability: null,
     }
 
     const mapping = new CompositeHandlerMapping('/')
@@ -295,5 +297,173 @@ describe('CompositeHandlerMapping 边界输入', () => {
     const ctx = new Context<any, any>({ text: '' }, {}, { textExtractor: (e: any) => e.text })
 
     expect(mapping.getHandler(ctx)).toBeUndefined()
+  })
+})
+
+describe('capability 元数据隔离', () => {
+  it('两个 Handler 类各自方法的 capability 不泄漏到对方', () => {
+    const metaA: DecoratorMetadataObject = {}
+    const metaB: DecoratorMetadataObject = {}
+
+    class HA {}
+    class HB {}
+
+    // 向 metaA 写入含 capability 的方法元数据
+    metaA[HANDLER_METHODS] = [
+      {
+        methodName: 'handleRevoke',
+        mappingType: 'command',
+        trigger: { cmd: 'revoke', aliases: new Set() },
+        permission: 0,
+        scope: 'all',
+        priority: 50,
+        interceptors: [],
+        requiredBotCapability: 'group_admin',
+      },
+    ]
+
+    Handler({ name: 'h-cap-a' })(HA, makeClassCtx('HA', metaA))
+    Handler({ name: 'h-cap-b' })(HB, makeClassCtx('HB', metaB))
+
+    const entryA = handlerRegistry.get('h-cap-a')!
+    const entryB = handlerRegistry.get('h-cap-b')!
+
+    expect(entryA.methods).toHaveLength(1)
+    expect(entryA.methods[0].requiredBotCapability).toBe('group_admin')
+
+    expect(entryB.methods).toHaveLength(0)
+  })
+
+  it('同一 Handler 类多个方法的 capability 各自独立', () => {
+    const meta: DecoratorMetadataObject = {}
+    class H {}
+
+    meta[HANDLER_METHODS] = [
+      {
+        methodName: 'handleAdmin',
+        mappingType: 'command',
+        trigger: { cmd: 'admin-cmd', aliases: new Set() },
+        permission: 0,
+        scope: 'all',
+        priority: 50,
+        interceptors: [],
+        requiredBotCapability: 'group_admin',
+      },
+      {
+        methodName: 'handleOwner',
+        mappingType: 'command',
+        trigger: { cmd: 'owner-cmd', aliases: new Set() },
+        permission: 0,
+        scope: 'all',
+        priority: 50,
+        interceptors: [],
+        requiredBotCapability: 'group_owner',
+      },
+      {
+        methodName: 'handleOpen',
+        mappingType: 'command',
+        trigger: { cmd: 'open-cmd', aliases: new Set() },
+        permission: 0,
+        scope: 'all',
+        priority: 50,
+        interceptors: [],
+        requiredBotCapability: null,
+      },
+    ]
+
+    Handler({ name: 'h-multi-cap' })(H, makeClassCtx('H', meta))
+    const entry = handlerRegistry.get('h-multi-cap')!
+
+    expect(entry.methods).toHaveLength(3)
+    const admin = entry.methods.find((m) => m.methodName === 'handleAdmin')
+    const owner = entry.methods.find((m) => m.methodName === 'handleOwner')
+    const open = entry.methods.find((m) => m.methodName === 'handleOpen')
+
+    expect(admin?.requiredBotCapability).toBe('group_admin')
+    expect(owner?.requiredBotCapability).toBe('group_owner')
+    expect(open?.requiredBotCapability).toBeNull()
+  })
+
+  it('10 个 Handler 类各自有带 capability 的方法，注册后互不干扰', () => {
+    const capabilities = [
+      'group_admin',
+      'group_owner',
+      null,
+      'group_admin',
+      null,
+      'group_owner',
+      null,
+      'group_admin',
+      'group_owner',
+      null,
+    ] as const
+
+    for (let i = 0; i < 10; i++) {
+      const meta: DecoratorMetadataObject = {}
+      const HandlerClass = class {}
+      Object.defineProperty(HandlerClass, 'name', { value: `BulkH${i}` })
+
+      meta[HANDLER_METHODS] = [
+        {
+          methodName: 'handle',
+          mappingType: 'command',
+          trigger: { cmd: `cmd-${i}`, aliases: new Set() },
+          permission: 0,
+          scope: 'all',
+          priority: 50,
+          interceptors: [],
+          requiredBotCapability: capabilities[i],
+        },
+      ]
+
+      Handler({ name: `bulk-cap-${i}` })(HandlerClass, makeClassCtx(`BulkH${i}`, meta))
+    }
+
+    for (let i = 0; i < 10; i++) {
+      const entry = handlerRegistry.get(`bulk-cap-${i}`)!
+      expect(entry).toBeDefined()
+      expect(entry.methods[0]?.requiredBotCapability).toBe(capabilities[i])
+    }
+  })
+
+  it('capability metadata 覆盖后旧 Handler 注册表中不保留旧 capability', () => {
+    const meta1: DecoratorMetadataObject = {}
+    const meta2: DecoratorMetadataObject = {}
+
+    class H1 {}
+    class H2 {}
+
+    meta1[HANDLER_METHODS] = [
+      {
+        methodName: 'handle',
+        mappingType: 'command',
+        trigger: { cmd: 'dup-cmd', aliases: new Set() },
+        permission: 0,
+        scope: 'all',
+        priority: 50,
+        interceptors: [],
+        requiredBotCapability: 'group_admin',
+      },
+    ]
+    meta2[HANDLER_METHODS] = [
+      {
+        methodName: 'handle',
+        mappingType: 'command',
+        trigger: { cmd: 'dup-cmd', aliases: new Set() },
+        permission: 0,
+        scope: 'all',
+        priority: 50,
+        interceptors: [],
+        requiredBotCapability: null,
+      },
+    ]
+
+    // 同名 Handler 注册两次，后者覆盖前者
+    Handler({ name: 'dup-cap' })(H1, makeClassCtx('H1', meta1))
+    Handler({ name: 'dup-cap' })(H2, makeClassCtx('H2', meta2))
+
+    const entry = handlerRegistry.get('dup-cap')!
+    expect(entry.handlerClass).toBe(H2)
+    expect(entry.methods[0]?.requiredBotCapability).toBeNull()
   })
 })

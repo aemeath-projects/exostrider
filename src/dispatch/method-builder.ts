@@ -42,5 +42,6 @@ export function buildHandlerMethod(
     mappingType: methodEntry.mappingType,
     trigger: methodEntry.trigger,
     interceptors,
+    requiredBotCapability: methodEntry.requiredBotCapability,
   }
 }

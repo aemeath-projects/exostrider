@@ -28,6 +28,7 @@ export function getOrCreateMethodEntry(context: ClassMethodDecoratorContext): Me
       scope: 'all',
       priority: null,
       interceptors: [],
+      requiredBotCapability: null,
     }
     methods.push(entry)
   }

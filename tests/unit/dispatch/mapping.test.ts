@@ -25,6 +25,7 @@ function makeHandler(overrides: Partial<HandlerMethod> = {}): HandlerMethod {
     mappingType: 'command',
     trigger: {},
     interceptors: [],
+    requiredBotCapability: null,
     ...overrides,
   }
 }

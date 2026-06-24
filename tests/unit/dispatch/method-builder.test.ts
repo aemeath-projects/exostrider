@@ -33,6 +33,7 @@ describe('buildHandlerMethod', () => {
         scope: 'all',
         priority: 50,
         interceptors: [],
+        requiredBotCapability: null,
       },
       instance,
     )
@@ -66,6 +67,7 @@ describe('buildHandlerMethod', () => {
         scope: 'all',
         priority: 50,
         interceptors: [{ interceptorClass: MI }],
+        requiredBotCapability: null,
       },
       instance,
     )
@@ -90,6 +92,7 @@ describe('buildHandlerMethod', () => {
           scope: 'all',
           priority: 50,
           interceptors: [],
+          requiredBotCapability: null,
         },
         instance,
       ),

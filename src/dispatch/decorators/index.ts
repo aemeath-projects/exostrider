@@ -24,3 +24,5 @@ export {
   HANDLER_OPTIONS,
 } from './symbols'
 export type { MethodMetaEntry, InterceptorEntry, SettingNodeEntry } from './symbols'
+export { RequiresBotCapability } from './capabilities'
+export type { BotCapability } from './capabilities'

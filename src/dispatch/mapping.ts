@@ -6,7 +6,7 @@
  */
 
 import type { Context } from './context'
-import type { InterceptorEntry } from './decorators'
+import type { InterceptorEntry, BotCapability } from './decorators'
 
 /** 处理器方法类型 */
 export type MappingType =
@@ -38,6 +38,8 @@ export interface HandlerMethod {
   readonly trigger: Record<string, unknown>
   /** 声明式拦截器列表。 */
   readonly interceptors: readonly InterceptorEntry[]
+  /** Bot 在群内需要具备的权限等级（null 表示无要求）。 */
+  readonly requiredBotCapability: BotCapability | null
 }
 
 /** HandlerMapping 接口 —— 将 Context 映射到 HandlerMethod。 */

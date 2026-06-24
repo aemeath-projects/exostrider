@@ -44,6 +44,7 @@ export {
   HANDLER_SETTINGS,
   HANDLER_NAME,
   HANDLER_OPTIONS,
+  RequiresBotCapability,
 } from './decorators'
 export type {
   OnCommandOptions,
@@ -53,4 +54,5 @@ export type {
   InterceptorEntry,
   SettingNodeEntry,
   HandlerOptions as HandlerDecoratorOptions,
+  BotCapability,
 } from './decorators'

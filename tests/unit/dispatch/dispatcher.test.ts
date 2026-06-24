@@ -54,6 +54,7 @@ function makeHandlerMethod(
     mappingType: 'command',
     trigger: {},
     interceptors: [],
+    requiredBotCapability: null,
     ...overrides,
   }
 }
@@ -565,6 +566,7 @@ describe('EventDispatcher', () => {
         mappingType: 'command',
         trigger: {},
         interceptors: [],
+        requiredBotCapability: null,
       }
 
       const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({

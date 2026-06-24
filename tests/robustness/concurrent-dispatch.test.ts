@@ -32,6 +32,7 @@ function makeHandlerMethod(
     mappingType: 'command',
     trigger: {},
     interceptors: [],
+    requiredBotCapability: null,
     ...overrides,
   }
 }

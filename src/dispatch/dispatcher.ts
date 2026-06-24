@@ -90,6 +90,7 @@ export class EventDispatcher<TEvent = unknown, TApis = unknown> {
       methodName: handler.methodName,
       handlerName: handler.handlerName,
       priority: handler.priority,
+      requiredBotCapability: handler.requiredBotCapability,
     }
 
     // 获取（或缓存复用）声明式拦截器实例

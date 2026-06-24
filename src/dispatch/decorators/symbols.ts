@@ -1,5 +1,7 @@
 /** Handler 装饰器元数据 Symbol key 定义。 */
 
+import type { BotCapability } from './capabilities'
+
 /** 方法路由元数据数组 key */
 export const HANDLER_METHODS = Symbol('handler:methods')
 
@@ -24,6 +26,7 @@ export interface MethodMetaEntry {
   scope: string
   priority: number | null
   interceptors: InterceptorEntry[]
+  requiredBotCapability: BotCapability | null
 }
 
 /** 拦截器条目 */

@@ -1,11 +1,10 @@
-/** Pino 日志工厂 —— 支持 JSON 或 pino-pretty 格式输出，并提供全局具名子 logger。 */
+/** Pino 日志工厂 —— 支持 JSON 或 Spring Boot 风格 console 格式输出，并提供全局具名子 logger。 */
 
 import { execSync } from 'node:child_process'
 import { Writable } from 'node:stream'
 
 import pino from 'pino'
 import type { Logger as PinoLogger } from 'pino'
-import pinoPretty from 'pino-pretty'
 
 import type { Logger } from '../types'
 
@@ -33,7 +32,7 @@ export interface CreateLoggerOptions {
    *
    * - `'auto'`（默认）：Windows 平台自动启用，其他平台不干预
    * - `true`：强制启用（chcp 仍仅在 Windows 执行，其他平台仅做 ANSI 检测）
-   * - `false`：关闭兼容层，使用 pino-pretty 原始行为（colorize: true）
+   * - `false`：关闭兼容层（colorize: true）
    */
   windowsCompat?: WindowsCompatMode
 }
@@ -55,7 +54,7 @@ export function detectAnsiSupport(): boolean {
   return (process.stdout as { hasColors?: () => boolean }).hasColors?.() ?? false
 }
 
-/** 应用 Windows 兼容层，返回 pino-pretty 应使用的 colorize 值。 */
+/** 应用 Windows 兼容层，返回 console 模式应使用的 colorize 值。 */
 function applyWindowsCompat(mode: WindowsCompatMode = 'auto'): boolean {
   const active = mode === true || (mode === 'auto' && process.platform === 'win32')
   if (!active) return true
@@ -71,10 +70,111 @@ function applyWindowsCompat(mode: WindowsCompatMode = 'auto'): boolean {
   return detectAnsiSupport()
 }
 
+/** 将 epoch 毫秒时间戳格式化为 Spring Boot 风格的 `yyyy-MM-dd HH:mm:ss.SSS`。 */
+function formatTimestamp(epochMs: number): string {
+  const d = new Date(epochMs)
+  const yyyy = String(d.getFullYear())
+  const MM = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const HH = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  const ss = String(d.getSeconds()).padStart(2, '0')
+  const SSS = String(d.getMilliseconds()).padStart(3, '0')
+  return `${yyyy}-${MM}-${dd} ${HH}:${mm}:${ss}.${SSS}`
+}
+
+/** 安全地将任意值转为字符串，对象则 JSON 序列化。 */
+function safeToString(v: unknown): string {
+  if (typeof v === 'string') return v
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'object') return JSON.stringify(v)
+  // number, boolean, bigint, symbol, function — String() is well-defined
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string
+  return String(v)
+}
+
+/** ANSI 转义序列常量。 */
+const ANSI_RESET = '\x1b[0m'
+const ANSI_KV_KEY = '\x1b[36m' // cyan — 键名
+const ANSI_KV_VAL = '\x1b[33m' // yellow — 键值
+const LEVEL_COLORS: Record<string, string> = {
+  DEBUG: '\x1b[36m', // cyan
+  INFO: '\x1b[32m', // green
+  WARN: '\x1b[33m', // yellow
+  ERROR: '\x1b[31m', // red
+  FATAL: '\x1b[31m', // red
+}
+
+/** pino 日志级别数字 → 标签映射。 */
+const LEVEL_LABELS: Record<number, string> = {
+  10: 'TRACE',
+  20: 'DEBUG',
+  30: 'INFO',
+  40: 'WARN',
+  50: 'ERROR',
+  60: 'FATAL',
+}
+
+/**
+ * 将 pino 日志条目格式化为单行字符串。
+ *
+ * 格式：`yyyy-MM-dd HH:mm:ss.SSS LEVEL [module] : message key=val ...`
+ * 额外键值对直接在同行尾部展开，key 染青色、value 染黄色。
+ */
+function formatSpringLine(log: Record<string, unknown>, colorize: boolean): string {
+  const standardKeys = new Set([
+    'level',
+    'time',
+    'pid',
+    'hostname',
+    'msg',
+    'module',
+    'name',
+    'v',
+    'ns',
+  ])
+
+  // 时间戳
+  const time = formatTimestamp(log.time as number)
+
+  // 日志级别（着色 + 5 字符对齐）
+  const levelNum = log.level as number
+  const levelRaw = LEVEL_LABELS[levelNum] ?? 'INFO'
+  const levelPadded = levelRaw.padEnd(5)
+  const levelDisplay = colorize
+    ? `${LEVEL_COLORS[levelRaw] ?? ''}${levelPadded}${ANSI_RESET}`
+    : levelPadded
+
+  // 模块名
+  const moduleName = safeToString(log.module ?? log.name ?? '')
+
+  // 消息体
+  const msg = safeToString(log.msg ?? '')
+
+  // 收集额外键值对（过滤标准字段）
+  const extraParts: string[] = []
+  for (const [key, value] of Object.entries(log)) {
+    if (standardKeys.has(key)) continue
+    if (value === undefined || value === null) continue
+    const strValue = safeToString(value)
+    extraParts.push(
+      colorize
+        ? `${ANSI_KV_KEY}${key}${ANSI_RESET}=${ANSI_KV_VAL}${strValue}${ANSI_RESET}`
+        : `${key}=${strValue}`,
+    )
+  }
+
+  let line = `${time} ${levelDisplay} [${moduleName}] : ${msg}`
+  if (extraParts.length > 0) {
+    line += ' ' + extraParts.join(' ')
+  }
+  return line + '\n'
+}
+
 /**
  * 创建 Pino 日志实例。
  *
- * - `format: 'console'`：通过 pino-pretty 彩色输出，适合开发环境
+ * - `format: 'console'`：Spring Boot 风格彩色输出，适合开发环境
  * - `format: 'json'`（默认）：JSON 格式写入 stdout，同时广播到 logBroadcaster
  *
  * @param options - 日志配置项
@@ -84,8 +184,19 @@ export function createLogger(options?: CreateLoggerOptions): PinoLogger {
 
   if (format === 'console') {
     const colorize = applyWindowsCompat(windowsCompat)
-    const prettyStream = pinoPretty({ colorize })
-    return pino({ level, redact, base }, prettyStream)
+    const springStream = new Writable({
+      write(chunk: Buffer, _encoding: BufferEncoding, callback: () => void): void {
+        try {
+          const log = JSON.parse(chunk.toString()) as Record<string, unknown>
+          process.stdout.write(formatSpringLine(log, colorize))
+        } catch {
+          // 非 JSON 数据直接透传
+          process.stdout.write(chunk)
+        }
+        callback()
+      },
+    })
+    return pino({ level, redact, base }, springStream)
   }
 
   // JSON 模式：stdout + broadcast 双写

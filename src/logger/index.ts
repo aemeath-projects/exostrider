@@ -1,5 +1,6 @@
 /** Pino 日志工厂 —— 支持 JSON 或 pino-pretty 格式输出，并提供全局具名子 logger。 */
 
+import { execSync } from 'node:child_process'
 import { Writable } from 'node:stream'
 
 import pino from 'pino'
@@ -13,6 +14,8 @@ import type { LogEntry } from './broadcast'
 
 export type LogFormat = 'json' | 'console'
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'silent'
+/** Windows 终端兼容层行为控制。 */
+export type WindowsCompatMode = boolean | 'auto'
 
 /** createLogger 配置项。 */
 export interface CreateLoggerOptions {
@@ -24,10 +27,49 @@ export interface CreateLoggerOptions {
   redact?: string[]
   /** 所有日志条目附带的基础字段。 */
   base?: Record<string, unknown>
+  /**
+   * Windows 终端兼容层：将控制台代码页切换为 UTF-8（`chcp 65001`），
+   * 并按终端能力自动决定是否启用 ANSI 着色。仅在 `format: 'console'` 时生效。
+   *
+   * - `'auto'`（默认）：Windows 平台自动启用，其他平台不干预
+   * - `true`：强制启用（chcp 仍仅在 Windows 执行，其他平台仅做 ANSI 检测）
+   * - `false`：关闭兼容层，使用 pino-pretty 原始行为（colorize: true）
+   */
+  windowsCompat?: WindowsCompatMode
 }
 
 /** 全局日志广播器单例，供消费者（如 SSE 端点）订阅实时日志流。 */
 export const logBroadcaster = new LogBroadcaster()
+
+/**
+ * 检测当前终端是否支持 ANSI 转义序列（颜色输出）。
+ *
+ * 优先遵循 `NO_COLOR` / `FORCE_COLOR` 等标准环境变量，
+ * 再检测已知支持 ANSI 的终端标识，最后通过 `process.stdout.hasColors()` 兜底。
+ */
+export function detectAnsiSupport(): boolean {
+  if (process.env.NO_COLOR !== undefined || process.env.TERM === 'dumb') return false
+  if (process.env.FORCE_COLOR !== undefined) return true
+  if (process.env.WT_SESSION !== undefined) return true // Windows Terminal
+  if (process.env.TERM_PROGRAM !== undefined) return true // VS Code / iTerm2 等
+  return (process.stdout as { hasColors?: () => boolean }).hasColors?.() ?? false
+}
+
+/** 应用 Windows 兼容层，返回 pino-pretty 应使用的 colorize 值。 */
+function applyWindowsCompat(mode: WindowsCompatMode = 'auto'): boolean {
+  const active = mode === true || (mode === 'auto' && process.platform === 'win32')
+  if (!active) return true
+
+  if (process.platform === 'win32') {
+    try {
+      execSync('chcp 65001', { stdio: 'pipe' })
+    } catch {
+      // CI 或受限沙箱下 chcp 可能不可用，静默忽略
+    }
+  }
+
+  return detectAnsiSupport()
+}
 
 /**
  * 创建 Pino 日志实例。
@@ -38,10 +80,11 @@ export const logBroadcaster = new LogBroadcaster()
  * @param options - 日志配置项
  */
 export function createLogger(options?: CreateLoggerOptions): PinoLogger {
-  const { level = 'info', format = 'json', redact, base } = options ?? {}
+  const { level = 'info', format = 'json', redact, base, windowsCompat } = options ?? {}
 
   if (format === 'console') {
-    const prettyStream = pinoPretty({ colorize: true })
+    const colorize = applyWindowsCompat(windowsCompat)
+    const prettyStream = pinoPretty({ colorize })
     return pino({ level, redact, base }, prettyStream)
   }
 

@@ -2,6 +2,13 @@
 
 所有版本变更记录
 
+## [1.1.4](https://github.com/aemeath-projects/exostrider/compare/v1.1.3...v1.1.4) (2026-06-24)
+
+
+### 新功能
+
+* **logger:** 实现 Spring Boot 风格 console 日志输出 ([c2f9a40](https://github.com/aemeath-projects/exostrider/commit/c2f9a403056a5f58e98b70960f2b3a9406526a44))
+
 ## [1.1.3](https://github.com/aemeath-projects/exostrider/compare/v1.1.2...v1.1.3) (2026-06-24)
 
 

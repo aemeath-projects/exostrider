@@ -2,6 +2,23 @@
 
 所有版本变更记录
 
+## [1.1.3](https://github.com/aemeath-projects/exostrider/compare/v1.1.2...v1.1.3) (2026-06-24)
+
+
+### 新功能
+
+* **logger:** 添加 Windows 终端兼容层（chcp 65001 + ANSI 检测） ([5f79f99](https://github.com/aemeath-projects/exostrider/commit/5f79f99648ab873db44b67a44f06556814c19044))
+
+
+### Bug 修复
+
+* **lifecycle:** 修复拓扑排序中同一 provider 多 serviceKey 的 inDegree 重复计数 ([18054f3](https://github.com/aemeath-projects/exostrider/commit/18054f399e1c68a1d2dd3ce77bd05a86ad497fbf))
+
+
+### 文档
+
+* 更新changelog ([21de33a](https://github.com/aemeath-projects/exostrider/commit/21de33a6b775580171415e51b77f6bcf300952ee))
+
 ## [1.1.2](https://github.com/aemeath-projects/exostrider/compare/v1.1.1...v1.1.2) (2026-06-24)
 
 

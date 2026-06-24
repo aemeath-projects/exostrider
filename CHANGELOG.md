@@ -38,7 +38,7 @@
 ## [1.0.1](https://github.com/aemeath-projects/exostrider/compare/v1.0.0...v1.0.1) (2026-06-22)
 
 
-### ♻重构
+### 重构
 
 * **core:** 统一导入规范与代码风格规则 ([8fe592f](https://github.com/aemeath-projects/exostrider/commit/8fe592f21afd169b5608e1660eba99aca7e69c45))
 

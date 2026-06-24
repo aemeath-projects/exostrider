@@ -2,6 +2,18 @@
 
 所有版本变更记录
 
+## [1.1.2](https://github.com/aemeath-projects/exostrider/compare/v1.1.1...v1.1.2) (2026-06-24)
+
+
+### 新功能
+
+* **dispatch:** 添加 @RequiresBotCapability 装饰器，支持 Bot 群内权限声明 ([d177051](https://github.com/aemeath-projects/exostrider/commit/d177051045f3ea3a078747d3ca4ce1ead7975c3c))
+
+
+### Bug 修复
+
+* **dispatch:** 全局拦截器阻断时不再调用声明式拦截器的 afterCompletion ([4c47be5](https://github.com/aemeath-projects/exostrider/commit/4c47be5f44de86efa8c4ba20baf82704a5577a98))
+
 ## [1.1.1](https://github.com/aemeath-projects/exostrider/compare/v1.1.0...v1.1.1) (2026-06-23)
 
 

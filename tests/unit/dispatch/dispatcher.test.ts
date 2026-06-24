@@ -236,6 +236,30 @@ describe('EventDispatcher', () => {
       await dispatcher.dispatch({}, {})
       expect(afterCompletion).toHaveBeenCalledOnce()
     })
+
+    it('全局 preHandle 返回 false 时，声明式拦截器 afterCompletion 不被调用', async () => {
+      const declAfterCompletion = vi.fn().mockResolvedValue(undefined)
+
+      class DeclInterceptor {
+        async afterCompletion(): Promise<void> {
+          declAfterCompletion()
+        }
+      }
+
+      const handlerMethod = makeHandlerMethod(vi.fn(), {
+        interceptors: [{ interceptorClass: DeclInterceptor }],
+      })
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping: makeMockMapping(handlerMethod),
+        interceptors: [makeInterceptor({ preHandle: async () => false })],
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({}, {})
+      // 声明式拦截器 preHandle 从未执行，afterCompletion 不应被调用
+      expect(declAfterCompletion).not.toHaveBeenCalled()
+    })
   })
 
   describe('FinishError 处理', () => {
@@ -550,6 +574,36 @@ describe('EventDispatcher', () => {
         expect.any(Object),
         expect.any(Error),
       )
+    })
+
+    it('全局 preHandle 抛出时，声明式拦截器 afterCompletion 不被调用', async () => {
+      const declAfterCompletion = vi.fn().mockResolvedValue(undefined)
+
+      class DeclInterceptor {
+        async afterCompletion(): Promise<void> {
+          declAfterCompletion()
+        }
+      }
+
+      const handlerMethod = makeHandlerMethod(vi.fn(), {
+        interceptors: [{ interceptorClass: DeclInterceptor }],
+      })
+
+      const throwingGlobal: HandlerInterceptor<SimpleEvent, SimpleApis> = {
+        preHandle: async () => {
+          throw new Error('global pre threw')
+        },
+      }
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping: makeMockMapping(handlerMethod),
+        interceptors: [throwingGlobal],
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({}, {})
+      // 声明式拦截器 preHandle 从未执行，afterCompletion 不应被调用
+      expect(declAfterCompletion).not.toHaveBeenCalled()
     })
 
     it('handler 方法不存在时抛出错误并由 afterCompletion 捕获', async () => {

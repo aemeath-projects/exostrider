@@ -28,6 +28,9 @@ pnpm test -- tests/unit/dispatch/registry.test.ts
 pnpm bump:patch   # 补丁版本 (1.0.x)
 pnpm bump:minor   # 次要版本 (1.x.0)
 pnpm bump:major   # 主版本 (x.0.0)
+
+# 交互式提交（commitizen，遵循 Conventional Commits）
+pnpm commit
 ```
 
 覆盖率阈值：functions 95%、lines 90%、branches 85%。
@@ -61,6 +64,7 @@ bootstrap 流程：
 - `CompositeHandlerMapping`：聚合 7 种子映射，按优先级顺序尝试匹配（command 10 → regex 20 → keyword 30 → startswith 40 → endswith 50 → fullmatch 60 → event 70）。`getAllHandlers` 返回所有命中处理器（供多播场景）。
 - `EventDispatcher`：拦截器链顺序为 —— 全局 preHandle → 声明式 preHandle → handler.method → 声明式 postHandle（逆序）→ 全局 postHandle（逆序）→ afterCompletion（始终，逆序）。`FinishError` 视为正常终止，不传 error 给 afterCompletion。
 - 路由装饰器：`@OnCommand`、`@OnKeyword`、`@OnRegex`、`@OnStartsWith`、`@OnEndsWith`、`@OnFullMatch`、`@OnEvent`。
+- 辅助装饰器：`@Permission(level)`、`@Scope(scope)`、`@Priority(n)` 设置路由元数据；`@Interceptor(cls, opts)` 声明式绑定拦截器（类级/方法级）；`@SettingNode(key, opts)` 声明可配置项；`@RequiresBotCapability('group_admin' | 'group_owner')` 声明 Bot 群权限要求。
 
 **Session** (`src/session/`)
 - `SessionManager<TContext>`：每个 key 维护一个活跃会话（由 `LockProvider` 互斥），含超时自动取消。接收 `processMessage` 时先检测 cancelCommands，再转发给 `StateMachine`。
@@ -79,7 +83,14 @@ bootstrap 流程：
 
 ### 重要约定
 
+- **Node.js 版本**：引擎要求 `>=24.17.0`（原生支持 TC39 装饰器元数据 `Symbol.metadata`）。
 - **ESM only**：`moduleResolution: bundler`，`src/` 内部导入路径**禁止**使用 `.js` 后缀（直接写 `'./foo'` 即可）。
 - **TC39 Stage 3 装饰器**：使用 `ClassMethodDecoratorContext`/`ClassDecoratorContext`，不是旧版 TypeScript 装饰器。
 - **全局单例隔离**：`Exostrider` 设计为进程单实例。隔离测试时，每次测试前必须调用 `handlerRegistry.clear()`。
 - **包导出路径**：`@aemeath-projects/exostrider`（主入口）、`/echo`、`/lifecycle`、`/dispatch`、`/session`、`/logger`、`/pool`、`/types`，均独立导出以支持 tree-shaking。
+
+### 测试目录
+
+- `tests/unit/`：单元测试，按模块分目录（`dispatch/`、`session/`、`pool/` 等）
+- `tests/integration/`：集成测试（`facade.test.ts` 覆盖完整 bootstrap + 分发流程）
+- `tests/robustness/`：并发/压力/边界场景测试

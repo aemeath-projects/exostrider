@@ -86,6 +86,7 @@ export class SessionManager<TContext = unknown> {
     // 设置超时
     const timeoutMs = this._config.sessionTimeout * 1000
     const timeoutHandle: ReturnType<typeof setTimeout> = setTimeout(() => {
+      // setTimeout 回调是同步的，IIFE 内部有完整 try/catch/finally，Promise 拒绝不会逃逸，void 安全
       void (async () => {
         const active = this._sessions.get(key)
         if (active === undefined) return

@@ -107,7 +107,8 @@ export class EventDispatcher<TEvent = unknown, TApis = unknown> {
         if (!ok) {
           this._logger?.debug(`拦截器阻断了事件处理: ${interceptor.constructor.name}`)
           await this._runAfterCompletion(executedGlobal, ctx, resolvedHandler, undefined)
-          await this._runAfterCompletion(declInterceptors, ctx, resolvedHandler, undefined)
+          // 声明式拦截器 preHandle 未执行，afterCompletion 不应调用（传空列表）
+          await this._runAfterCompletion([], ctx, resolvedHandler, undefined)
           return
         }
       } catch (err) {
@@ -115,7 +116,8 @@ export class EventDispatcher<TEvent = unknown, TApis = unknown> {
         this._logger?.error(`preHandle 中发生错误：${handlerError.message}`)
         executedGlobal.push(interceptor) // 抛出异常的拦截器也已执行过 preHandle，需纳入 afterCompletion
         await this._runAfterCompletion(executedGlobal, ctx, resolvedHandler, handlerError)
-        await this._runAfterCompletion(declInterceptors, ctx, resolvedHandler, handlerError)
+        // 声明式拦截器 preHandle 未执行，afterCompletion 不应调用（传空列表）
+        await this._runAfterCompletion([], ctx, resolvedHandler, handlerError)
         return
       }
     }
@@ -165,6 +167,8 @@ export class EventDispatcher<TEvent = unknown, TApis = unknown> {
           break
         }
       }
+      // 有意设计：postHandle 阶段 fail-fast，与 preHandle 错误行为对称。
+      // 声明式 postHandle 出错后直接跳到 afterCompletion，全局 postHandle 不再执行。
       if (!handlerError) {
         for (const interceptor of [...this._interceptors].reverse()) {
           try {

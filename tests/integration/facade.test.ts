@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Exostrider } from '../../src'
 import type { ExostriderOptions, RoleDefinition } from '../../src'
 import { handlerRegistry } from '../../src/dispatch'
+import type { HandlerRegistryData } from '../../src/dispatch'
 import type { ClientState } from '../../src/pool'
 
 beforeEach(() => {
@@ -159,6 +160,30 @@ describe('Exostrider facade', () => {
     await ex.bootstrap()
     expect(ex.session).toBeDefined()
     await expect(ex.shutdown()).resolves.toBeUndefined()
+  })
+
+  it('handler 注入不存在的服务 key 时，catch 分支返回 undefined，bootstrap 不抛出', async () => {
+    // 使用 Symbol.for('service:injects') 构造注入元数据，模拟 handler 依赖不存在的服务
+    const injectsKey = Symbol.for('service:injects')
+    const metadata: Record<symbol, unknown> = {}
+    metadata[injectsKey] = [{ propertyName: 'dep', serviceKey: 'non-existent-service' }]
+
+    const data: HandlerRegistryData = {
+      options: { name: 'handler-missing-dep' },
+      handlerClass: class {},
+      metadata: metadata,
+      methods: [],
+      classInterceptors: [],
+      settingNodes: [],
+    }
+    handlerRegistry.register(data)
+
+    const ex = new Exostrider({
+      echo: { config: { echoes: {} }, baseDir: process.cwd() },
+      dispatch: { contextConfig: {} },
+    })
+    // ServiceRegistry 中无 'non-existent-service'，registry.get 抛出，catch 分支返回 undefined
+    await expect(ex.bootstrap()).resolves.toBeUndefined()
   })
 
   it('bootstrap 后 dispatcher 为正式实例', async () => {

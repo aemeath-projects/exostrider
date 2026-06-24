@@ -393,6 +393,155 @@ describe('LifecycleOrchestrator — 依赖排序', () => {
     expect(order[0]).toBe('provider')
     expect(order[1]).toBe('consumer')
   })
+
+  it('同一 provider 提供 ≥2 个 serviceKey 时 inDegree 不被重复计数', async () => {
+    // multi_provider 同时提供 svc_a / svc_b，consumer 同时注入两者
+    // 两个 inject 指向同一 provider，应只建一条依赖边，inDegree[consumer] 应为 1
+    const order: string[] = []
+
+    class MultiProviderSvc {
+      svcA = { name: 'a' }
+      svcB = { name: 'b' }
+      start(): void {
+        order.push('multi_provider')
+      }
+    }
+
+    class ConsumerSvc {
+      depA?: unknown
+      depB?: unknown
+      start(): void {
+        order.push('consumer')
+      }
+    }
+
+    const registry = new ServiceRegistry()
+    const orchestrator = new LifecycleOrchestrator(registry)
+
+    const providerEntry = makeEntry('multi_provider', {
+      serviceClass: MultiProviderSvc as unknown as new (...args: unknown[]) => unknown,
+      startupMethod: 'start',
+      provides: [
+        { propertyName: 'svcA', serviceKey: 'svc_a' },
+        { propertyName: 'svcB', serviceKey: 'svc_b' },
+      ],
+    })
+
+    const consumerEntry = makeEntry('consumer', {
+      serviceClass: ConsumerSvc as unknown as new (...args: unknown[]) => unknown,
+      startupMethod: 'start',
+      injects: [
+        { propertyName: 'depA', serviceKey: 'svc_a' },
+        { propertyName: 'depB', serviceKey: 'svc_b' },
+      ],
+    })
+
+    await expect(orchestrator.startup([consumerEntry, providerEntry])).resolves.toBeUndefined()
+    expect(order).toEqual(['multi_provider', 'consumer'])
+  })
+
+  it('同一 provider 提供 3 个 serviceKey 全部被同一 consumer 注入时仍正确排序', async () => {
+    const order: string[] = []
+
+    class TripleProviderSvc {
+      k1 = 1
+      k2 = 2
+      k3 = 3
+      start(): void {
+        order.push('triple_provider')
+      }
+    }
+
+    class ConsumerSvc {
+      a?: unknown
+      b?: unknown
+      c?: unknown
+      start(): void {
+        order.push('consumer')
+      }
+    }
+
+    const registry = new ServiceRegistry()
+    const orchestrator = new LifecycleOrchestrator(registry)
+
+    const providerEntry = makeEntry('triple_provider', {
+      serviceClass: TripleProviderSvc as unknown as new (...args: unknown[]) => unknown,
+      startupMethod: 'start',
+      provides: [
+        { propertyName: 'k1', serviceKey: 'key_1' },
+        { propertyName: 'k2', serviceKey: 'key_2' },
+        { propertyName: 'k3', serviceKey: 'key_3' },
+      ],
+    })
+
+    const consumerEntry = makeEntry('consumer', {
+      serviceClass: ConsumerSvc as unknown as new (...args: unknown[]) => unknown,
+      startupMethod: 'start',
+      injects: [
+        { propertyName: 'a', serviceKey: 'key_1' },
+        { propertyName: 'b', serviceKey: 'key_2' },
+        { propertyName: 'c', serviceKey: 'key_3' },
+      ],
+    })
+
+    await expect(orchestrator.startup([consumerEntry, providerEntry])).resolves.toBeUndefined()
+    expect(order).toEqual(['triple_provider', 'consumer'])
+  })
+
+  it('多个不同 provider 各提供一个 key，consumer 分别注入时 inDegree 正确累加', async () => {
+    const order: string[] = []
+
+    class ProviderA {
+      val = 'a'
+      start(): void {
+        order.push('provider_a')
+      }
+    }
+
+    class ProviderB {
+      val = 'b'
+      start(): void {
+        order.push('provider_b')
+      }
+    }
+
+    class ConsumerSvc {
+      depA?: unknown
+      depB?: unknown
+      start(): void {
+        order.push('consumer')
+      }
+    }
+
+    const registry = new ServiceRegistry()
+    const orchestrator = new LifecycleOrchestrator(registry)
+
+    const entryA = makeEntry('provider_a', {
+      serviceClass: ProviderA as unknown as new (...args: unknown[]) => unknown,
+      startupMethod: 'start',
+      provides: [{ propertyName: 'val', serviceKey: 'key_a' }],
+    })
+
+    const entryB = makeEntry('provider_b', {
+      serviceClass: ProviderB as unknown as new (...args: unknown[]) => unknown,
+      startupMethod: 'start',
+      provides: [{ propertyName: 'val', serviceKey: 'key_b' }],
+    })
+
+    const consumerEntry = makeEntry('consumer', {
+      serviceClass: ConsumerSvc as unknown as new (...args: unknown[]) => unknown,
+      startupMethod: 'start',
+      injects: [
+        { propertyName: 'depA', serviceKey: 'key_a' },
+        { propertyName: 'depB', serviceKey: 'key_b' },
+      ],
+    })
+
+    // consumer 依赖两个不同 provider，inDegree 应为 2，两个 provider 都完成后才启动 consumer
+    await orchestrator.startup([consumerEntry, entryB, entryA])
+    expect(order.indexOf('consumer')).toBeGreaterThan(order.indexOf('provider_a'))
+    expect(order.indexOf('consumer')).toBeGreaterThan(order.indexOf('provider_b'))
+  })
 })
 
 describe('LifecycleOrchestrator — 边界情况', () => {

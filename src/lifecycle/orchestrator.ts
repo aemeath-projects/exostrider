@@ -149,8 +149,10 @@ export class LifecycleOrchestrator<TMap extends Record<string, unknown> = Record
         const provider = provideMap.get(inject.serviceKey)
         if (provider !== undefined && provider !== entry.name) {
           const providerSet = adj.get(provider)
-          if (providerSet) providerSet.add(entry.name)
-          inDegree.set(entry.name, (inDegree.get(entry.name) ?? 0) + 1)
+          if (providerSet && !providerSet.has(entry.name)) {
+            providerSet.add(entry.name)
+            inDegree.set(entry.name, (inDegree.get(entry.name) ?? 0) + 1)
+          }
         }
       }
     }

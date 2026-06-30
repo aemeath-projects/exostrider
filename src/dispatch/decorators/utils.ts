@@ -16,8 +16,7 @@ export function getOrCreateMethodEntry(context: ClassMethodDecoratorContext): Me
   }
 
   const methods: MethodMetaEntry[] = ((metadata[HANDLER_METHODS] as
-    | MethodMetaEntry[]
-    | undefined) ??= [])
+    MethodMetaEntry[] | undefined) ??= [])
   let entry = methods.find((m) => m.methodName === context.name)
   if (!entry) {
     entry = {

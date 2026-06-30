@@ -24,8 +24,7 @@ export function Interceptor(
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- TC39 规范保证非空，但防御性检查以兼容非标准环境
       if (!metadata) throw new Error('[dispatch] @Interceptor: context.metadata 不可用')
       const list: InterceptorEntry[] = ((metadata[HANDLER_CLASS_INTERCEPTORS] as
-        | InterceptorEntry[]
-        | undefined) ??= [])
+        InterceptorEntry[] | undefined) ??= [])
       list.push(entry)
     } else {
       const methodEntry = getOrCreateMethodEntry(context)

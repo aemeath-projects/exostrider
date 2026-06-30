@@ -17,8 +17,7 @@ export function SettingNode(key: string, options: SettingNodeOptions) {
     const entry: SettingNodeEntry = { key, options }
 
     const handlerSettings: SettingNodeEntry[] = ((metadata[HANDLER_SETTINGS] as
-      | SettingNodeEntry[]
-      | undefined) ??= [])
+      SettingNodeEntry[] | undefined) ??= [])
     handlerSettings.push(entry)
   }
 }

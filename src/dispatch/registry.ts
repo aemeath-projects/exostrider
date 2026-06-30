@@ -92,8 +92,7 @@ export class HandlerRegistry<TEvent = unknown, TApis = unknown> {
       if (injector) {
         const injectsKey = Symbol.for('service:injects')
         const injects = (data.metadata as Record<symbol, unknown>)[injectsKey] as
-          | { propertyName: string | symbol; serviceKey: string }[]
-          | undefined
+          { propertyName: string | symbol; serviceKey: string }[] | undefined
         if (Array.isArray(injects)) {
           for (const inject of injects) {
             const svc = injector(inject.serviceKey)

@@ -10,13 +10,7 @@ import type { InterceptorEntry, BotCapability } from './decorators'
 
 /** 处理器方法类型 */
 export type MappingType =
-  | 'command'
-  | 'regex'
-  | 'keyword'
-  | 'startswith'
-  | 'endswith'
-  | 'fullmatch'
-  | 'event'
+  'command' | 'regex' | 'keyword' | 'startswith' | 'endswith' | 'fullmatch' | 'event'
 
 /** 封装已注册的处理器方法及其路由信息。 */
 export interface HandlerMethod {

@@ -10,10 +10,8 @@ import {
   OnEndsWith,
   OnFullMatch,
   OnEvent,
-  SettingNode,
   HANDLER_METHODS,
   HANDLER_CLASS_INTERCEPTORS,
-  HANDLER_SETTINGS,
   handlerRegistry,
 } from '../../../src/dispatch'
 import { Permission, Scope, Priority } from '../../../src/dispatch/decorators'
@@ -116,24 +114,6 @@ describe('@Handler', () => {
 
     const data = handlerRegistry.get('echo')
     expect(data?.methods[0].priority).toBe(99)
-  })
-
-  it('Handler 拼接 SettingNode key 前缀', () => {
-    class ConfigHandler {}
-
-    const settingNodes = [{ key: 'enabled', options: { type: 'boolean' as const, default: true } }]
-    const metadata: DecoratorMetadataObject = { [HANDLER_SETTINGS]: settingNodes }
-    const context: ClassDecoratorContext = {
-      kind: 'class',
-      name: 'ConfigHandler',
-      metadata,
-      addInitializer: () => {},
-    }
-
-    Handler({ name: 'myHandler' })(ConfigHandler, context)
-
-    const data = handlerRegistry.get('myHandler')
-    expect(data?.settingNodes[0].key).toBe('myHandler.enabled')
   })
 })
 
@@ -370,50 +350,6 @@ describe('方法选项装饰器', () => {
     expect(methods[0].permission).toBe(30)
     expect(methods[0].scope).toBe('private')
     expect(methods[0].mappingType).toBe('command')
-  })
-})
-
-describe('@SettingNode', () => {
-  it('SettingNode 将设置节点存入 metadata[HANDLER_SETTINGS]', () => {
-    const metadata: DecoratorMetadataObject = {}
-    const context: ClassDecoratorContext = {
-      kind: 'class',
-      name: 'Cls',
-      metadata,
-      addInitializer: () => {},
-    }
-
-    SettingNode('enabled', { type: 'boolean', default: true, description: '是否启用' })(
-      class {},
-      context,
-    )
-
-    const settings = metadata[HANDLER_SETTINGS] as {
-      key: string
-      options: Record<string, unknown>
-    }[]
-    expect(settings).toHaveLength(1)
-    expect(settings[0].key).toBe('enabled')
-    expect(settings[0].options.type).toBe('boolean')
-    expect(settings[0].options.default).toBe(true)
-    expect(settings[0].options.description).toBe('是否启用')
-  })
-
-  it('多个 SettingNode 均被收集', () => {
-    const metadata: DecoratorMetadataObject = {}
-    const context: ClassDecoratorContext = {
-      kind: 'class',
-      name: 'Cls',
-      metadata,
-      addInitializer: () => {},
-    }
-
-    SettingNode('enabled', { type: 'boolean', default: true })(class {}, context)
-    SettingNode('maxCount', { type: 'number', default: 10 })(class {}, context)
-
-    const settings = metadata[HANDLER_SETTINGS] as { key: string }[]
-    expect(settings).toHaveLength(2)
-    expect(settings.map((s) => s.key)).toEqual(['enabled', 'maxCount'])
   })
 })
 

@@ -8,9 +8,6 @@ export const HANDLER_METHODS = Symbol('handler:methods')
 /** 类级别拦截器数组 key */
 export const HANDLER_CLASS_INTERCEPTORS = Symbol('handler:class-interceptors')
 
-/** SettingNode 列表 key */
-export const HANDLER_SETTINGS = Symbol('handler:settings')
-
 /** Handler 名称 key */
 export const HANDLER_NAME = Symbol('handler:name')
 
@@ -33,20 +30,4 @@ export interface MethodMetaEntry {
 export interface InterceptorEntry {
   interceptorClass: new (options?: unknown) => unknown
   options?: unknown
-}
-
-/** SettingNode 配置项选项 */
-export interface SettingNodeOptions {
-  readonly type: 'boolean' | 'number' | 'string' | 'enum'
-  readonly default: unknown
-  readonly description?: string
-  readonly enumOptions?: Record<string, unknown>
-  readonly scope?: 'global' | 'group'
-  readonly category?: string
-}
-
-/** SettingNode 条目 */
-export interface SettingNodeEntry {
-  readonly key: string
-  readonly options: SettingNodeOptions
 }

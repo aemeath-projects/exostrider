@@ -11,7 +11,6 @@ import { Context } from '../../src'
 import {
   Handler,
   HANDLER_METHODS,
-  HANDLER_SETTINGS,
   CompositeHandlerMapping,
   handlerRegistry,
 } from '../../src/dispatch'
@@ -109,28 +108,6 @@ describe('Handler 装饰器元数据隔离', () => {
 
     expect(entryA.methods).toHaveLength(1)
     expect(entryB.methods).toHaveLength(0)
-  })
-
-  it('Handler 类的 settingNodes 不会泄漏到另一个 Handler', () => {
-    const metaA: DecoratorMetadataObject = {}
-    const metaB: DecoratorMetadataObject = {}
-
-    class HA {}
-    class HB {}
-
-    // 向 metaA 写入 setting 元数据
-    metaA[HANDLER_SETTINGS] = [{ key: 'enabled', options: { type: 'boolean', default: true } }]
-
-    Handler({ name: 'h-settings-a' })(HA, makeClassCtx('HA', metaA))
-    Handler({ name: 'h-settings-b' })(HB, makeClassCtx('HB', metaB))
-
-    const entryA = handlerRegistry.get('h-settings-a')!
-    const entryB = handlerRegistry.get('h-settings-b')!
-
-    // SettingNode 的 key 会被添加 handler name 前缀
-    expect(entryA.settingNodes).toHaveLength(1)
-    expect(entryA.settingNodes[0].key).toBe('h-settings-a.enabled')
-    expect(entryB.settingNodes).toHaveLength(0)
   })
 
   it('Handler 注册相同名称时覆盖，不保留旧条目', () => {

@@ -14,15 +14,12 @@ export {
 export type { OnCommandOptions, EventMatchConfig } from './routing'
 export { Permission, Scope, Priority } from './method-options'
 export { Interceptor } from './interceptor'
-export { SettingNode } from './setting-node'
-export type { SettingNodeOptions } from './setting-node'
 export {
   HANDLER_METHODS,
   HANDLER_CLASS_INTERCEPTORS,
-  HANDLER_SETTINGS,
   HANDLER_NAME,
   HANDLER_OPTIONS,
 } from './symbols'
-export type { MethodMetaEntry, InterceptorEntry, SettingNodeEntry } from './symbols'
+export type { MethodMetaEntry, InterceptorEntry } from './symbols'
 export { RequiresBotCapability } from './capabilities'
 export type { BotCapability } from './capabilities'

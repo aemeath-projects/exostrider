@@ -15,7 +15,6 @@ function makeRegistryData(
     metadata,
     methods,
     classInterceptors: [],
-    settingNodes: [],
   }
 }
 
@@ -109,7 +108,6 @@ describe('HandlerRegistry', () => {
         metadata,
         methods: [],
         classInterceptors: [],
-        settingNodes: [],
       }
 
       const fakeService = { greet: () => 'Hello!' }
@@ -170,7 +168,6 @@ describe('HandlerRegistry', () => {
           },
         ],
         classInterceptors: [],
-        settingNodes: [],
       }
 
       registry.register(data)
@@ -222,7 +219,6 @@ describe('HandlerRegistry', () => {
           },
         ],
         classInterceptors: [],
-        settingNodes: [],
       }
 
       registry.register(data)
@@ -253,7 +249,6 @@ describe('HandlerRegistry', () => {
           },
         ],
         classInterceptors: [],
-        settingNodes: [],
       }
 
       registry.register(data)
@@ -280,7 +275,6 @@ describe('HandlerRegistry', () => {
           },
         ],
         classInterceptors: [],
-        settingNodes: [],
       }
       registry.register(data)
       // 不应抛出错误，只是跳过 broken 的方法

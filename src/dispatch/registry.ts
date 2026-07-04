@@ -6,7 +6,7 @@
 
 import type { Logger } from '../types'
 
-import type { MethodMetaEntry, InterceptorEntry, SettingNodeEntry } from './decorators'
+import type { MethodMetaEntry, InterceptorEntry } from './decorators'
 import { CompositeHandlerMapping } from './mapping'
 import { buildHandlerMethod } from './method-builder'
 
@@ -27,7 +27,6 @@ export interface HandlerRegistryData {
   readonly metadata: DecoratorMetadataObject
   readonly methods: MethodMetaEntry[]
   readonly classInterceptors: InterceptorEntry[]
-  readonly settingNodes: SettingNodeEntry[]
 }
 
 /** Handler 统一注册表（平台无关泛型版本）。 */

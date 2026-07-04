@@ -10,7 +10,6 @@ function makeData(name: string, overrides: Partial<HandlerRegistryData> = {}): H
     metadata: {},
     methods: [],
     classInterceptors: [],
-    settingNodes: [],
     ...overrides,
   }
 }

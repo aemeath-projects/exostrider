@@ -64,7 +64,7 @@ bootstrap 流程：
 - `CompositeHandlerMapping`：聚合 7 种子映射，按优先级顺序尝试匹配（command 10 → regex 20 → keyword 30 → startswith 40 → endswith 50 → fullmatch 60 → event 70）。`getAllHandlers` 返回所有命中处理器（供多播场景）。
 - `EventDispatcher`：拦截器链顺序为 —— 全局 preHandle → 声明式 preHandle → handler.method → 声明式 postHandle（逆序）→ 全局 postHandle（逆序）→ afterCompletion（始终，逆序）。`FinishError` 视为正常终止，不传 error 给 afterCompletion。
 - 路由装饰器：`@OnCommand`、`@OnKeyword`、`@OnRegex`、`@OnStartsWith`、`@OnEndsWith`、`@OnFullMatch`、`@OnEvent`。
-- 辅助装饰器：`@Permission(level)`、`@Scope(scope)`、`@Priority(n)` 设置路由元数据；`@Interceptor(cls, opts)` 声明式绑定拦截器（类级/方法级）；`@SettingNode(key, opts)` 声明可配置项；`@RequiresBotCapability('group_admin' | 'group_owner')` 声明 Bot 群权限要求。
+- 辅助装饰器：`@Permission(level)`、`@Scope(scope)`、`@Priority(n)` 设置路由元数据；`@Interceptor(cls, opts)` 声明式绑定拦截器（类级/方法级）；`@RequiresBotCapability('group_admin' | 'group_owner')` 声明 Bot 群权限要求。
 
 **Session** (`src/session/`)
 - `SessionManager<TContext>`：每个 key 维护一个活跃会话（由 `LockProvider` 互斥），含超时自动取消。接收 `processMessage` 时先检测 cancelCommands，再转发给 `StateMachine`。

@@ -38,10 +38,8 @@ export {
   Scope,
   Priority,
   Interceptor,
-  SettingNode,
   HANDLER_METHODS,
   HANDLER_CLASS_INTERCEPTORS,
-  HANDLER_SETTINGS,
   HANDLER_NAME,
   HANDLER_OPTIONS,
   RequiresBotCapability,
@@ -49,10 +47,8 @@ export {
 export type {
   OnCommandOptions,
   EventMatchConfig,
-  SettingNodeOptions,
   MethodMetaEntry,
   InterceptorEntry,
-  SettingNodeEntry,
   HandlerOptions as HandlerDecoratorOptions,
   BotCapability,
 } from './decorators'

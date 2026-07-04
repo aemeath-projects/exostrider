@@ -174,7 +174,6 @@ describe('Exostrider facade', () => {
       metadata: metadata,
       methods: [],
       classInterceptors: [],
-      settingNodes: [],
     }
     handlerRegistry.register(data)
 

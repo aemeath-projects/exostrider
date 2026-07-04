@@ -6,10 +6,8 @@ import type { HandlerOptions, HandlerRegistryData } from '../registry'
 import {
   HANDLER_METHODS,
   HANDLER_CLASS_INTERCEPTORS,
-  HANDLER_SETTINGS,
   type MethodMetaEntry,
   type InterceptorEntry,
-  type SettingNodeEntry,
 } from './symbols'
 
 export type { HandlerOptions, HandlerRegistryData }
@@ -34,20 +32,10 @@ export function Handler(opts: HandlerOptions) {
         : []
     ) as InterceptorEntry[]
 
-    const settingNodes = (
-      Object.hasOwn(metadata, HANDLER_SETTINGS) ? metadata[HANDLER_SETTINGS] : []
-    ) as SettingNodeEntry[]
-
     // 填充默认优先级（null 表示使用 defaultPriority）
     for (const method of methods) {
       method.priority ??= defaultPriority
     }
-
-    // 拼接 SettingNode key 前缀
-    const prefixedSettings = settingNodes.map((node) => ({
-      ...node,
-      key: `${opts.name}.${node.key}`,
-    }))
 
     const data: HandlerRegistryData = {
       options: opts,
@@ -55,7 +43,6 @@ export function Handler(opts: HandlerOptions) {
       metadata,
       methods,
       classInterceptors,
-      settingNodes: prefixedSettings,
     }
 
     handlerRegistry.register(data)

@@ -2,6 +2,13 @@
 
 所有版本变更记录
 
+## [1.1.5](https://github.com/aemeath-projects/exostrider/compare/v1.1.4...v1.1.5) (2026-07-04)
+
+
+### 重构
+
+* **dispatch:** 移除 SettingNode 装饰器机制，恢复框架抽象边界 ([5aa8828](https://github.com/aemeath-projects/exostrider/commit/5aa8828146af4d8fa077d9003546047420fb335a))
+
 ## [1.1.4](https://github.com/aemeath-projects/exostrider/compare/v1.1.3...v1.1.4) (2026-06-24)
 
 

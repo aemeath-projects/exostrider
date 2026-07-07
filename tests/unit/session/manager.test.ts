@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 
-import { InteractiveSession, SessionManager } from '../../../src/session'
+import {
+  InteractiveSession,
+  SessionManager,
+  STATE_META_KEY,
+  INPUT_META_KEY,
+  EXIT_META_KEY,
+} from '../../../src/session'
 import type { SessionContext, StateDefinition } from '../../../src/session'
 
 /** 简单的测试会话，onInput 触发 finished。 */
@@ -316,6 +322,224 @@ describe('SessionManager', () => {
       await manager.start(new NeverEndSession(), 'user:1')
       await manager.start(new NeverEndSession(), 'user:2')
       await manager.cancelAll()
+      expect(manager.getActiveCount()).toBe(0)
+    })
+  })
+
+  describe('装饰器 DSL 路径 (buildStatesFromDecorators)', () => {
+    it('未重写 buildStates 时从装饰器元数据构建状态', async () => {
+      class DecoratedSession extends InteractiveSession {}
+
+      // 模拟 @state('idle', { initial: true }) 装饰器效果 —— 方法必须挂到 prototype 上
+      async function idleState(this: DecoratedSession) {}
+      Object.assign(idleState, {
+        [STATE_META_KEY as string]: { id: 'idle', initial: true },
+      })
+
+      // 模拟 @onInput('idle') 装饰器效果
+      async function handleInput(this: DecoratedSession) {
+        return { finished: true }
+      }
+      Object.assign(handleInput, {
+        [INPUT_META_KEY as string]: { stateId: 'idle' },
+      })
+
+      // 模拟 @onExit('idle') 装饰器效果
+      async function onExitState(this: DecoratedSession) {}
+      Object.assign(onExitState, {
+        [EXIT_META_KEY as string]: { stateId: 'idle' },
+      })
+
+      // 将方法挂到 prototype 上（模拟 @state / @onInput / @onExit 装饰器的效果）
+      ;(DecoratedSession.prototype as unknown as Record<string, unknown>).idleState = idleState
+      ;(DecoratedSession.prototype as unknown as Record<string, unknown>).handleInput = handleInput
+      ;(DecoratedSession.prototype as unknown as Record<string, unknown>).onExitState = onExitState
+
+      const manager = makeManager()
+      await manager.start(new DecoratedSession(), 'dsl-user')
+      expect(manager.isActive('dsl-user')).toBe(true)
+
+      // processMessage 应触发 finished（handleInput 返回 { finished: true }）
+      await manager.processMessage('dsl-user', 'anything')
+      expect(manager.isActive('dsl-user')).toBe(false)
+    })
+  })
+
+  describe('错误钩子异常处理', () => {
+    it('onTimeout 抛出异常时 logger.error 被调用且会话仍被清理', async () => {
+      vi.useFakeTimers()
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        fatal: vi.fn(),
+      }
+
+      class ThrowingTimeoutSession extends InteractiveSession {
+        override buildStates(): StateDefinition[] {
+          return [{ id: 'waiting' }]
+        }
+        override async onTimeout(_ctx: SessionContext): Promise<void> {
+          throw new Error('timeout error')
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: { sessionTimeout: 1 },
+        keyExtractor: (ctx) => ctx,
+        logger,
+      })
+      await manager.start(new ThrowingTimeoutSession(), 'timeout-err')
+      expect(manager.isActive('timeout-err')).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(2000)
+
+      expect(logger.error).toHaveBeenCalled()
+      expect(manager.isActive('timeout-err')).toBe(false)
+    })
+
+    it('onFinish 抛出异常时 logger.error 被调用且会话仍被清理', async () => {
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        fatal: vi.fn(),
+      }
+
+      class ThrowingFinishSession extends InteractiveSession {
+        override buildStates(): StateDefinition[] {
+          return [{ id: 'start', onInput: async () => ({ finished: true }) }]
+        }
+        override async onFinish(_ctx: SessionContext, _data: unknown): Promise<void> {
+          throw new Error('finish error')
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: { sessionTimeout: 30 },
+        keyExtractor: (ctx) => ctx,
+        logger,
+      })
+      await manager.start(new ThrowingFinishSession(), 'finish-err')
+      await manager.processMessage('finish-err', 'done')
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('onFinish'),
+        expect.any(Error),
+      )
+      expect(manager.isActive('finish-err')).toBe(false)
+    })
+
+    it('onStart 抛出异常时 logger.error 被调用，会话被清理且异常向外传播', async () => {
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        fatal: vi.fn(),
+      }
+
+      class ThrowingStartSession extends InteractiveSession {
+        override buildStates(): StateDefinition[] {
+          return [{ id: 'start' }]
+        }
+        override async onStart(_ctx: SessionContext): Promise<void> {
+          throw new Error('start error')
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: { sessionTimeout: 30 },
+        keyExtractor: (ctx) => ctx,
+        logger,
+      })
+
+      await expect(manager.start(new ThrowingStartSession(), 'start-err')).rejects.toThrow(
+        'start error',
+      )
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('启动异常'),
+        expect.any(Error),
+      )
+      expect(manager.isActive('start-err')).toBe(false)
+    })
+
+    it('stateMachine.start 抛出异常时 onError 被调用且会话被清理', async () => {
+      const onError = vi.fn().mockResolvedValue(undefined)
+
+      class ThrowingStateMachineSession extends InteractiveSession {
+        override buildStates(): StateDefinition[] {
+          return [
+            {
+              id: 'start',
+              onEnter: async () => {
+                throw new Error('enter error')
+              },
+            },
+          ]
+        }
+        override async onError(_ctx: SessionContext, err: Error): Promise<void> {
+          onError(err)
+        }
+      }
+
+      const manager = makeManager()
+      await expect(manager.start(new ThrowingStateMachineSession(), 'sm-err')).rejects.toThrow(
+        'enter error',
+      )
+
+      expect(manager.isActive('sm-err')).toBe(false)
+    })
+  })
+
+  describe('onError 钩子', () => {
+    it('onInput 抛出异常时 onError 被调用且会话被清理', async () => {
+      const onError = vi.fn().mockResolvedValue(undefined)
+
+      class InputErrorSession extends InteractiveSession {
+        override buildStates(): StateDefinition[] {
+          return [
+            {
+              id: 'start',
+              onInput: async () => {
+                throw new Error('input error')
+              },
+            },
+          ]
+        }
+        override async onError(_ctx: SessionContext, err: Error): Promise<void> {
+          onError(err)
+        }
+      }
+
+      const manager = makeManager()
+      await manager.start(new InputErrorSession(), 'input-err')
+      await manager.processMessage('input-err', 'boom')
+
+      expect(onError).toHaveBeenCalledWith(expect.any(Error))
+      expect(manager.isActive('input-err')).toBe(false)
+    })
+
+    it('cancelAll 部分失败时不阻塞其他会话取消', async () => {
+      const manager = makeManager()
+
+      class ThrowCancelSession extends InteractiveSession {
+        override buildStates(): StateDefinition[] {
+          return [{ id: 'waiting' }]
+        }
+        override async onCancel(_ctx: SessionContext): Promise<void> {
+          throw new Error('cancel error')
+        }
+      }
+
+      await manager.start(new ThrowCancelSession(), 'fail-key')
+      await manager.start(new NeverEndSession(), 'ok-key')
+
+      await manager.cancelAll()
+
       expect(manager.getActiveCount()).toBe(0)
     })
   })

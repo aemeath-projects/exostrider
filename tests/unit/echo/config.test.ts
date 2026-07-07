@@ -79,4 +79,30 @@ describe('loadEchoConfig', () => {
       await fs.rm(tmpDir, { recursive: true })
     }
   })
+
+  it('加载 default 导出不是对象的文件时应抛出错误', async () => {
+    const os = await import('node:os')
+    const fs = await import('node:fs/promises')
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'echo-test-'))
+    const configPath = path.join(tmpDir, 'string-config.mjs')
+    try {
+      await fs.writeFile(configPath, 'export default "not an object";\n')
+      await expect(loadEchoConfig(configPath)).rejects.toThrow(/合法的 EchoConfig/)
+    } finally {
+      await fs.rm(tmpDir, { recursive: true })
+    }
+  })
+
+  it('加载 default 导出无 echoes 字段时应抛出错误', async () => {
+    const os = await import('node:os')
+    const fs = await import('node:fs/promises')
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'echo-test-'))
+    const configPath = path.join(tmpDir, 'no-echoes.mjs')
+    try {
+      await fs.writeFile(configPath, 'export default { foo: "bar" };\n')
+      await expect(loadEchoConfig(configPath)).rejects.toThrow(/合法的 EchoConfig/)
+    } finally {
+      await fs.rm(tmpDir, { recursive: true })
+    }
+  })
 })

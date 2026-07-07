@@ -254,4 +254,121 @@ describe('并发分发健壮性', () => {
     // 不抛出即通过，logger 调用与否均可
     expect(true).toBe(true)
   })
+
+  it('混合命令前缀 —— /cmd 与普通文本同时分发各自正确匹配', async () => {
+    let cmdCount = 0
+    let textCount = 0
+
+    const cmdHandler: HandlerMethod = {
+      instance: {
+        handle: async () => {
+          cmdCount++
+        },
+      },
+      methodName: 'handle',
+      handlerName: 'cmd',
+      priority: 10,
+      permission: 0,
+      mappingType: 'command',
+      trigger: { cmd: 'hello', aliases: new Set<string>() },
+      interceptors: [],
+      requiredBotCapability: null,
+    }
+    const kwHandler: HandlerMethod = {
+      instance: {
+        handle: async () => {
+          textCount++
+        },
+      },
+      methodName: 'handle',
+      handlerName: 'kw',
+      priority: 20,
+      permission: 0,
+      mappingType: 'keyword',
+      trigger: { keywords: new Set(['status']) },
+      interceptors: [],
+      requiredBotCapability: null,
+    }
+
+    const mapping: any = new CompositeHandlerMapping('/')
+    mapping.register(cmdHandler)
+    mapping.register(kwHandler)
+
+    const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+      mapping: mapping as HandlerMapping<SimpleEvent, SimpleApis>,
+      contextConfig: { textExtractor: (e) => String(e.text ?? '') },
+    })
+
+    const N = 50
+    await Promise.all(
+      Array.from({ length: N }, (_, i) =>
+        dispatcher.dispatch({ text: i % 2 === 0 ? '/hello world' : 'check status now' }, {}),
+      ),
+    )
+
+    expect(cmdCount).toBe(25)
+    expect(textCount).toBe(25)
+  })
+
+  it('200 次并发分发中 handler 抛出随机异常，其余正常完成', async () => {
+    let successCount = 0
+    let errorCount = 0
+
+    const handler = makeHandlerMethod(async (ctx) => {
+      if (ctx.event.throwError === true) throw new Error('随机异常')
+      successCount++
+    })
+
+    let acErrors = 0
+    class ErrorCollector implements HandlerInterceptor<SimpleEvent, SimpleApis> {
+      async afterCompletion(_ctx: Ctx, _h: ResolvedHandler, error?: Error): Promise<void> {
+        if (error) errorCount++
+        acErrors++
+      }
+    }
+
+    const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+      mapping: makeCompositeMapping([handler]),
+      interceptors: [new ErrorCollector()],
+      contextConfig: {},
+    })
+
+    const N = 200
+    await Promise.all(
+      Array.from({ length: N }, (_, i) => dispatcher.dispatch({ throwError: i % 13 === 0 }, {})),
+    )
+
+    expect(acErrors).toBe(N) // afterCompletion 始终调用
+    const expectedErrors = Array.from({ length: N }, (_, i) => i).filter((i) => i % 13 === 0).length
+    expect(errorCount).toBe(expectedErrors)
+    expect(successCount).toBe(N - expectedErrors)
+  })
+
+  it('声明式拦截器缓存复用 —— 同 handler 多次分发共享拦截器实例', async () => {
+    let instanceCount = 0
+
+    class CachedInterceptor {
+      constructor() {
+        instanceCount++
+      }
+      async preHandle(): Promise<boolean> {
+        return true
+      }
+    }
+
+    const handler = makeHandlerMethod(async () => {}, {
+      interceptors: [{ interceptorClass: CachedInterceptor }],
+    })
+
+    const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+      mapping: makeCompositeMapping([handler]),
+      contextConfig: {},
+    })
+
+    const N = 50
+    await Promise.all(Array.from({ length: N }, () => dispatcher.dispatch({}, {})))
+
+    // 声明式拦截器实例应被缓存，只实例化一次
+    expect(instanceCount).toBe(1)
+  })
 })

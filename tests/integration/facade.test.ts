@@ -8,10 +8,12 @@ import { Exostrider } from '../../src'
 import type { ExostriderOptions, RoleDefinition } from '../../src'
 import { handlerRegistry } from '../../src/dispatch'
 import type { HandlerRegistryData } from '../../src/dispatch'
+import { serviceEntryRegistry } from '../../src/lifecycle'
 import type { ClientState } from '../../src/pool'
 
 beforeEach(() => {
   handlerRegistry.clear()
+  serviceEntryRegistry.clear()
 })
 
 describe('Exostrider facade', () => {
@@ -200,6 +202,31 @@ describe('Exostrider facade', () => {
     const postBootstrapDispatcher = ex.dispatcher
     expect(postBootstrapDispatcher).toBeDefined()
     expect(postBootstrapDispatcher).not.toBe(preBootstrapDispatcher)
+  })
+
+  it('bootstrap 有注册的 @Service 时启动生命周期并注册 @Provide', async () => {
+    class MyService {
+      myValue = { hello: 'world' }
+    }
+
+    serviceEntryRegistry.set('my-svc', {
+      name: 'my-svc',
+      serviceClass: MyService,
+      injects: [],
+      provides: [{ propertyName: 'myValue', serviceKey: 'my_value' }],
+      startupMethod: null,
+      shutdownMethod: null,
+    })
+
+    const ex = new Exostrider({
+      echo: { config: { echoes: {} }, baseDir: process.cwd() },
+      dispatch: { contextConfig: {} },
+    })
+
+    await expect(ex.bootstrap()).resolves.toBeUndefined()
+    expect(ex.registry.get('my_value')).toEqual({ hello: 'world' })
+
+    serviceEntryRegistry.clear()
   })
 })
 

@@ -586,4 +586,29 @@ describe('LifecycleOrchestrator — 边界情况', () => {
 
     expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining('stop'))
   })
+
+  it('两个不同 service 提供同一 serviceKey 时抛出错误', async () => {
+    class ProviderA {
+      val = 'a'
+    }
+    class ProviderB {
+      val = 'b'
+    }
+
+    const entryA = makeEntry('svc_a', {
+      serviceClass: ProviderA as unknown as new (...args: unknown[]) => unknown,
+      provides: [{ propertyName: 'val', serviceKey: 'shared_key' }],
+    })
+    const entryB = makeEntry('svc_b', {
+      serviceClass: ProviderB as unknown as new (...args: unknown[]) => unknown,
+      provides: [{ propertyName: 'val', serviceKey: 'shared_key' }],
+    })
+
+    const registry = new ServiceRegistry()
+    const orchestrator = new LifecycleOrchestrator(registry)
+
+    await expect(orchestrator.startup([entryA, entryB])).rejects.toThrow(
+      /"shared_key" 被多个服务提供/,
+    )
+  })
 })

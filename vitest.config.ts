@@ -11,7 +11,7 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**'],
       reporter: ['text', 'lcov'],
-      thresholds: { functions: 95, lines: 90, branches: 85 },
+      thresholds: { statements: 95, functions: 95, lines: 90, branches: 85 },
     },
     reporters: ['default', 'junit'],
     outputFile: { junit: './test-results/junit.xml' },

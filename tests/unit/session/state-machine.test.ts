@@ -172,5 +172,14 @@ describe('StateMachine', () => {
       await sm.start(makeCtx())
       expect(sm.isFinished).toBe(false)
     })
+
+    it('当前状态在 map 中不存在时抛出 StateMachineError', async () => {
+      const states: StateDefinition[] = [{ id: 'a', onInput: async () => ({}) }]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      // 直接通过私有字段破坏状态以模拟 corrupted state
+      ;(sm as unknown as { _currentState: string })._currentState = 'nonexistent'
+      await expect(sm.processInput(makeCtx(), 'hello')).rejects.toThrow(StateMachineError)
+    })
   })
 })

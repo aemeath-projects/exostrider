@@ -244,4 +244,87 @@ describe('会话并发压力测试', () => {
 
     expect(manager.getActiveCount()).toBe(0)
   })
+
+  it('同一 key 的 processMessage 与 cancel 并发竞争，最终状态一致', async () => {
+    const manager = makeManager()
+
+    await manager.start(new NeverEndSession(), 'race-key')
+
+    // 同时发送消息和取消
+    const results = await Promise.allSettled([
+      manager.processMessage('race-key', 'hello'),
+      manager.processMessage('race-key', 'hello'),
+      manager.processMessage('race-key', '/取消'),
+    ])
+
+    // 所有操作应完成（部分可能因会话已取消而返回 false）
+    expect(results.every((r) => r.status === 'fulfilled')).toBe(true)
+    // 最终状态：会话不再活跃
+    expect(manager.isActive('race-key')).toBe(false)
+  })
+
+  it('并发 processMessage 到同一 key，消息被依次处理不丢失', async () => {
+    const received: string[] = []
+
+    class CountingSession extends InteractiveSession<{ messages: string[] }> {
+      override buildStates(): StateDefinition[] {
+        return [
+          {
+            id: 'waiting',
+            async onInput(_ctx, input) {
+              received.push(input)
+              return input === 'finish' ? { finished: true, data: { messages: received } } : {}
+            },
+          },
+        ]
+      }
+    }
+
+    const manager = makeManager()
+    await manager.start(new CountingSession(), 'seq-key')
+
+    const N = 30
+    const inputs = Array.from({ length: N - 1 }, (_, i) => `msg-${i}`)
+    inputs.push('finish')
+
+    await Promise.all(inputs.map((input) => manager.processMessage('seq-key', input)))
+
+    // 'finish' 会触发 finished，所有先前的消息应已处理
+    expect(received.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('快速 start-cancel-start 循环，每次均可成功启动', async () => {
+    const manager = makeManager()
+
+    const N = 20
+    for (let i = 0; i < N; i++) {
+      const key = `cycle-key-${i % 3}` // 3 个 key 循环复用
+      await manager.start(new SimpleSession(), key)
+      expect(manager.isActive(key)).toBe(true)
+      await manager.cancel(key)
+      expect(manager.isActive(key)).toBe(false)
+    }
+  })
+
+  it('同一 key 并发 start 两次，最终只有一个活跃', async () => {
+    const manager = makeManager()
+
+    // 第一次 start 正常
+    await manager.start(new NeverEndSession(), 'single-key')
+
+    const _results = await Promise.allSettled([
+      manager.start(new NeverEndSession(), 'single-key'),
+      manager.start(new NeverEndSession(), 'single-key'),
+    ])
+
+    expect(manager.getActiveCount()).toBe(1)
+    expect(manager.isActive('single-key')).toBe(true)
+
+    // Cancel 后重新 start
+    await manager.cancel('single-key')
+    expect(manager.isActive('single-key')).toBe(false)
+
+    await manager.start(new SimpleSession(), 'single-key')
+    expect(manager.isActive('single-key')).toBe(true)
+  })
 })

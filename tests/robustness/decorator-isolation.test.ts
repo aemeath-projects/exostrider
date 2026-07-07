@@ -16,7 +16,7 @@ import {
 } from '../../src/dispatch'
 import { Service, serviceEntryRegistry, SERVICE_INJECTS } from '../../src/lifecycle'
 
-// ── 辅助函数 ──
+/* 辅助函数 */
 
 function makeClassCtx(name: string, metadata: DecoratorMetadataObject = {}): ClassDecoratorContext {
   return {
@@ -27,7 +27,7 @@ function makeClassCtx(name: string, metadata: DecoratorMetadataObject = {}): Cla
   }
 }
 
-// ── 清理全局注册表 ──
+/* 清理全局注册表 */
 
 beforeEach(() => {
   handlerRegistry.clear()

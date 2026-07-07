@@ -752,6 +752,65 @@ describe('EventDispatcher', () => {
     })
   })
 
+  describe('preHandle 抛出非 Error 对象', () => {
+    it('全局 preHandle 抛出字符串时封装为 Error 并调用 afterCompletion', async () => {
+      const afterCompletion = vi.fn().mockResolvedValue(undefined)
+      const handlerFn = vi.fn()
+
+      const handlerMethod = makeHandlerMethod(handlerFn)
+
+      const interceptor: HandlerInterceptor<SimpleEvent, SimpleApis> = {
+        preHandle: async () => {
+          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          throw 'string error from preHandle'
+        },
+        afterCompletion,
+      }
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping: makeMockMapping(handlerMethod),
+        interceptors: [interceptor],
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({}, {})
+      expect(handlerFn).not.toHaveBeenCalled()
+      expect(afterCompletion).toHaveBeenCalledWith(
+        expect.any(Context),
+        expect.any(Object),
+        expect.any(Error),
+      )
+    })
+
+    it('全局 preHandle 抛出非 Error 时有 logger 记录 logger.error', async () => {
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      }
+
+      const handlerMethod = makeHandlerMethod(vi.fn())
+
+      const interceptor: HandlerInterceptor<SimpleEvent, SimpleApis> = {
+        preHandle: async () => {
+          // eslint-disable-next-line @typescript-eslint/only-throw-error
+          throw 'logger pre error'
+        },
+      }
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping: makeMockMapping(handlerMethod),
+        interceptors: [interceptor],
+        logger,
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({}, {})
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('preHandle'))
+    })
+  })
+
   describe('postHandle 错误路径', () => {
     it('声明式拦截器 postHandle 抛出时 afterCompletion 被调用', async () => {
       const afterCompletion = vi.fn().mockResolvedValue(undefined)
@@ -836,6 +895,38 @@ describe('EventDispatcher', () => {
         expect.any(Object),
         expect.any(Error),
       )
+    })
+
+    it('声明式拦截器 postHandle 抛出时有 logger 记录 logger.error', async () => {
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      }
+
+      class ThrowPostDeclInterceptor {
+        async preHandle(): Promise<boolean> {
+          return true
+        }
+        async postHandle(): Promise<void> {
+          throw new Error('decl post error')
+        }
+      }
+
+      const handlerFn = vi.fn().mockResolvedValue(undefined)
+      const handlerMethod = makeHandlerMethod(handlerFn, {
+        interceptors: [{ interceptorClass: ThrowPostDeclInterceptor }],
+      })
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping: makeMockMapping(handlerMethod),
+        logger,
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({}, {})
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('声明式'))
     })
   })
 })

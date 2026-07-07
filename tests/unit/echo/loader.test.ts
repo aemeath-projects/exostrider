@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 
 import type { EchoConfig, EchoValidator } from '../../../src'
 import { EchoLoader } from '../../../src/echo'
@@ -188,5 +188,50 @@ describe('EchoLoader', () => {
     const loader = new EchoLoader(config, '/')
     const result = await loader.discoverByType('handler')
     expect(result).toHaveLength(0)
+  })
+
+  it('readdir 失败且错误码非 ENOENT/ENOTDIR 时记录 warn', async () => {
+    const tmpDir = await createTmpDir()
+    const warnings: string[] = []
+    const mockLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: (msg: string) => {
+        warnings.push(msg)
+      },
+      error: () => {},
+    }
+
+    const subDir = path.join(tmpDir, 'locked-dir')
+    await fs.mkdir(subDir)
+    // 写入一个文件让 scanDir 先进入子目录扫描
+    await fs.writeFile(path.join(subDir, 'dummy.js'), 'export const x = 1;\n')
+
+    // spy readdir，对 locked-dir 抛 EACCES
+    const origReaddir = fs.readdir
+    const readdirSpy = vi.spyOn(fs, 'readdir' as any).mockImplementation(((
+      dirPath: unknown,
+      options?: unknown,
+    ) => {
+      if (typeof dirPath === 'string' && dirPath.endsWith('locked-dir')) {
+        const err = new Error('EACCES: permission denied') as NodeJS.ErrnoException
+        err.code = 'EACCES'
+        throw err
+      }
+      const opts = options as { withFileTypes?: boolean } | undefined
+      return origReaddir(dirPath as any, opts as any)
+    }) as any)
+
+    const config: EchoConfig = { echoes: { handler: { dir: tmpDir } } }
+    const loader = new EchoLoader(config, '/', { logger: mockLogger })
+
+    try {
+      const _results = await loader.discoverByType('handler')
+      // 因 locked-dir 的 readdir 失败，子目录文件不会被扫描
+      // 其他文件可能正常
+      expect(warnings.some((w) => w.includes('读取目录失败'))).toBe(true)
+    } finally {
+      readdirSpy.mockRestore()
+    }
   })
 })

@@ -479,4 +479,18 @@ describe('ClientPool', () => {
       expect(logger.error).toHaveBeenCalledWith('healthCheck: 客户端异常', 'a')
     })
   })
+
+  describe('disconnectAll 非 Error 拒绝', () => {
+    it('disconnect 抛出非 Error 值时被转换为 Error 并记录日志', async () => {
+      const logger = { warn: vi.fn(), error: vi.fn() }
+      const pool = new ClientPool({ roles: ROLES, logger })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.disconnect.mockRejectedValue('string rejection')
+      pool.addClient(adapter, 'master')
+
+      await pool.disconnectAll()
+
+      expect(logger.error).toHaveBeenCalledWith('disconnectAll: 客户端断连失败', 'string rejection')
+    })
+  })
 })

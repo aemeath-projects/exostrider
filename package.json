@@ -12,7 +12,7 @@
   "engines": {
     "node": ">=24.17.0"
   },
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@11.10.0",
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -111,8 +111,8 @@
     "@commitlint/cli": "^21.2.0",
     "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
-    "@types/node": "^26.0.1",
-    "@vitest/coverage-v8": "^4.1.9",
+    "@types/node": "^26.1.0",
+    "@vitest/coverage-v8": "^4.1.10",
     "commit-and-tag-version": "^12.7.3",
     "commitizen": "^4.3.2",
     "cz-conventional-changelog": "^3.3.0",
@@ -125,7 +125,7 @@
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.1",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "minimatch": "^10.2.5",

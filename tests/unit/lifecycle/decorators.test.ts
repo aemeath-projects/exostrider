@@ -21,7 +21,7 @@ import {
   SERVICE_SHUTDOWN,
 } from '../../../src/lifecycle'
 
-// ── 辅助函数：构建 ClassFieldDecoratorContext / ClassMethodDecoratorContext ──
+/* 辅助函数：构建 ClassFieldDecoratorContext / ClassMethodDecoratorContext */
 
 function makeFieldCtx(
   name: string,
@@ -71,13 +71,13 @@ function makeClassCtx(
   }
 }
 
-// ── beforeEach: 每次测试前清空全局注册表 ──
+/* beforeEach: 每次测试前清空全局注册表 */
 
 beforeEach(() => {
   serviceEntryRegistry.clear()
 })
 
-// ── @Inject 测试 ──
+/* @Inject 测试 */
 
 describe('@Inject', () => {
   it('将注入条目存入 metadata', () => {
@@ -116,7 +116,7 @@ describe('@Inject', () => {
   })
 })
 
-// ── @Provide 测试 ──
+/* @Provide 测试 */
 
 describe('@Provide', () => {
   it('将提供条目存入 metadata', () => {
@@ -146,7 +146,7 @@ describe('@Provide', () => {
   })
 })
 
-// ── @Startup 测试 ──
+/* @Startup 测试 */
 
 describe('@Startup', () => {
   it('将方法名存入 metadata', () => {
@@ -164,7 +164,7 @@ describe('@Startup', () => {
   })
 })
 
-// ── @Shutdown 测试 ──
+/* @Shutdown 测试 */
 
 describe('@Shutdown', () => {
   it('将方法名存入 metadata', () => {
@@ -182,7 +182,7 @@ describe('@Shutdown', () => {
   })
 })
 
-// ── @Service 测试（通过函数调用触发） ──
+/* @Service 测试（通过函数调用触发） */
 
 describe('@Service', () => {
   it('将服务注册到 serviceEntryRegistry', () => {

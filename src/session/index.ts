@@ -11,8 +11,14 @@ export type { SessionConfig, LockProvider } from './lock'
 export type { StateDefinition, StateTransitionResult, TransitionConfig } from './state'
 export { SessionContext } from './context'
 export { StateMachine, StateMachineError, InvalidTransitionError } from './state-machine'
-export { InteractiveSession } from './base'
-export { SESSION_META_KEY, STATE_META_KEY, INPUT_META_KEY, EXIT_META_KEY } from './base'
+export {
+  InteractiveSession,
+  buildStatesFromDecorators,
+  SESSION_META_KEY,
+  STATE_META_KEY,
+  INPUT_META_KEY,
+  EXIT_META_KEY,
+} from './base'
 export type { SessionClassMeta, StateMethMeta, InputMethMeta, ExitMethMeta } from './base'
 export { interactiveSession, state, onInput, onExit } from './decorators'
 export type { InteractiveSessionOptions, StateDecoratorOptions } from './decorators'

@@ -1,14 +1,17 @@
 import { describe, it, expect, vi } from 'vitest'
 
-import { SessionContext, state, onInput, onExit } from '../../../src/session'
-import type { StateDefinition } from '../../../src/session'
 import {
+  SessionContext,
+  state,
+  onInput,
+  onExit,
   InteractiveSession,
   buildStatesFromDecorators,
   STATE_META_KEY,
   INPUT_META_KEY,
   EXIT_META_KEY,
-} from '../../../src/session/base'
+} from '../../../src/session'
+import type { StateDefinition } from '../../../src/session'
 
 describe('InteractiveSession 基类', () => {
   describe('buildStates()', () => {

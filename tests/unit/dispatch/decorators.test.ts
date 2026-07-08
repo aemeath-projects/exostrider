@@ -13,8 +13,10 @@ import {
   HANDLER_METHODS,
   HANDLER_CLASS_INTERCEPTORS,
   handlerRegistry,
+  PermissionDecorator,
+  Scope,
+  Priority,
 } from '../../../src/dispatch'
-import { Permission, Scope, Priority } from '../../../src/dispatch/decorators'
 
 /**
  * 注意：测试使用函数调用风格（非装饰器语法），
@@ -313,7 +315,7 @@ describe('方法选项装饰器', () => {
 
   it('@Permission 设置 permission 等级', () => {
     const ctx = makeMethodContext()
-    Permission(20)(function () {}, ctx)
+    PermissionDecorator(20)(function () {}, ctx)
 
     const methods = ctx.metadata[HANDLER_METHODS] as { permission: number }[]
     expect(methods[0].permission).toBe(20)
@@ -338,7 +340,7 @@ describe('方法选项装饰器', () => {
   it('多个装饰器作用于同一方法时共享同一个 entry', () => {
     const ctx = makeMethodContext()
     OnCommand('test')(function () {}, ctx)
-    Permission(30)(function () {}, ctx)
+    PermissionDecorator(30)(function () {}, ctx)
     Scope('private')(function () {}, ctx)
 
     const methods = ctx.metadata[HANDLER_METHODS] as {

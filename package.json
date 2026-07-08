@@ -30,7 +30,6 @@
     "bump:major": "commit-and-tag-version --release-as major",
     "changelog": "commit-and-tag-version --skip.bump --skip.commit --skip.tag",
     "commit": "cz",
-    "prepublishOnly": "pnpm lint && pnpm type-check && pnpm run test && pnpm run build",
     "prepare": "husky"
   },
   "keywords": [

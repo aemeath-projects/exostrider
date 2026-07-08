@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
 
-import { RequiresBotCapability, HANDLER_METHODS } from '../../../../src/dispatch'
+import {
+  RequiresBotCapability,
+  HANDLER_METHODS,
+  getOrCreateMethodEntry,
+} from '../../../../src/dispatch'
 import type { BotCapability, MethodMetaEntry } from '../../../../src/dispatch'
-import { getOrCreateMethodEntry } from '../../../../src/dispatch/decorators/utils'
 
 function makeMethodCtx(
   name: string | symbol,

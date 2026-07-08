@@ -74,6 +74,19 @@ export default defineConfig(
     },
   },
   {
+    files: ['src/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['../*/**/*'],
+            message: 'Cross-module imports must use barrel files. Import from "../<module>" not "../<module>/<subpath>".',
+          },
+        ],
+      }],
+    },
+  },
+  {
     files: ['tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
@@ -97,6 +110,14 @@ export default defineConfig(
         'error',
         { selector: 'variable', modifiers: ['destructured'], format: null },
       ],
+      '@typescript-eslint/no-restricted-imports': ['error', {
+        patterns: [
+          {
+            group: ['**/src/*/**/*'],
+            message: 'Test imports from source must use barrel files. Import from "**/src/<module>" not "**/src/<module>/<subpath>".',
+          },
+        ],
+      }],
     },
   },
   prettier,

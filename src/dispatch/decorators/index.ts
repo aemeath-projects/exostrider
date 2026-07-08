@@ -23,3 +23,4 @@ export {
 export type { MethodMetaEntry, InterceptorEntry } from './symbols'
 export { RequiresBotCapability } from './capabilities'
 export type { BotCapability } from './capabilities'
+export { getOrCreateMethodEntry } from './utils'

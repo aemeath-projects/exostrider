@@ -43,6 +43,7 @@ export {
   HANDLER_NAME,
   HANDLER_OPTIONS,
   RequiresBotCapability,
+  getOrCreateMethodEntry,
 } from './decorators'
 export type {
   OnCommandOptions,

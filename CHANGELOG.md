@@ -2,6 +2,13 @@
 
 所有版本变更记录
 
+## [1.1.7](https://github.com/aemeath-projects/exostrider/compare/v1.1.6...v1.1.7) (2026-07-08)
+
+
+### 重构
+
+* 精简 ClientPool API 并新增 scopeExtractor 上下文提取回调 ([6d700db](https://github.com/aemeath-projects/exostrider/commit/6d700dbebedec6bd7ab70f93a7443d3243affccc))
+
 ## [1.1.6](https://github.com/aemeath-projects/exostrider/compare/v1.1.5...v1.1.6) (2026-07-08)
 
 

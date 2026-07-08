@@ -1,6 +1,6 @@
 {
   "name": "@aemeath-projects/exostrider",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "隧者：TypeScript 事件驱动框架，内置装饰器路由、服务生命周期编排、会话状态机、客户端池管理与结构化日志",
   "type": "module",
   "main": "./dist/index.js",

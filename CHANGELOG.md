@@ -2,6 +2,13 @@
 
 所有版本变更记录
 
+## [1.1.6](https://github.com/aemeath-projects/exostrider/compare/v1.1.5...v1.1.6) (2026-07-08)
+
+
+### 重构
+
+* 强制 barrel 文件导入并移除 prepublishOnly 脚本 ([a50b894](https://github.com/aemeath-projects/exostrider/commit/a50b894f601fb8c6dd01ebf464b5f6c2f28c86c1))
+
 ## [1.1.5](https://github.com/aemeath-projects/exostrider/compare/v1.1.4...v1.1.5) (2026-07-04)
 
 

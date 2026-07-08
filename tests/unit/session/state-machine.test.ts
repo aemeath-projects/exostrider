@@ -154,6 +154,32 @@ describe('StateMachine', () => {
         InvalidTransitionError,
       )
     })
+
+    it('finished 后调用 transitionTo 跳过 onExit（_currentState 为 null）', async () => {
+      const onExit = vi.fn().mockResolvedValue(undefined)
+      const onEnterB = vi.fn().mockResolvedValue(undefined)
+      const states: StateDefinition[] = [
+        { id: 'a', onExit, onInput: async () => ({ finished: true }) },
+        { id: 'b', onEnter: onEnterB },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      await sm.processInput(makeCtx(), 'done')
+      expect(sm.isFinished).toBe(true)
+
+      await sm.transitionTo(makeCtx(), 'b')
+      expect(sm.getCurrentState()).toBe('b')
+      expect(onExit).toHaveBeenCalledTimes(1) // 仅在 processInput finished 时调用一次
+      expect(onEnterB).toHaveBeenCalled()
+    })
+
+    it('未启动时调用 transitionTo 跳过 onExit 直接进入目标状态', async () => {
+      const onEnter = vi.fn().mockResolvedValue(undefined)
+      const sm = new StateMachine([{ id: 'a', onEnter }])
+      await sm.transitionTo(makeCtx(), 'a')
+      expect(sm.getCurrentState()).toBe('a')
+      expect(onEnter).toHaveBeenCalled()
+    })
   })
 
   describe('getCurrentState() & isFinished', () => {

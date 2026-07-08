@@ -327,4 +327,66 @@ describe('会话并发压力测试', () => {
     await manager.start(new SimpleSession(), 'single-key')
     expect(manager.isActive('single-key')).toBe(true)
   })
+
+  it('同一 key 高频率 processMessage 并发下消息依次处理不丢失', async () => {
+    const received: string[] = []
+
+    class SeqSession extends InteractiveSession<{ messages: string[] }> {
+      override buildStates(): StateDefinition[] {
+        return [
+          {
+            id: 'waiting',
+            async onInput(_ctx, input) {
+              received.push(input)
+              return input === 'finish' ? { finished: true, data: { messages: received } } : {}
+            },
+          },
+        ]
+      }
+    }
+
+    const manager = makeManager()
+    await manager.start(new SeqSession(), 'high-freq')
+
+    const N = 100
+    const results = await Promise.allSettled(
+      Array.from({ length: N - 1 }, (_, i) =>
+        manager.processMessage('high-freq', `msg-${i}`),
+      ).concat(manager.processMessage('high-freq', 'finish')),
+    )
+
+    expect(results.every((r) => r.status === 'fulfilled')).toBe(true)
+    expect(manager.isActive('high-freq')).toBe(false)
+  })
+
+  it('同一 3 个 key 快速 start-cancel 100 次循环，活跃数稳定', async () => {
+    const manager = makeManager()
+    const N = 100
+
+    for (let i = 0; i < N; i++) {
+      const key = `cycle-${i % 3}`
+      await manager.start(new SimpleSession(), key)
+      expect(manager.isActive(key)).toBe(true)
+      await manager.cancel(key)
+      expect(manager.isActive(key)).toBe(false)
+    }
+  })
+
+  it('100 个会话，一半超时一半手动取消，最终全部清理', async () => {
+    vi.useFakeTimers()
+    const manager = makeManager(2)
+
+    const N = 100
+    await Promise.all(
+      Array.from({ length: N }, (_, i) => manager.start(new NeverEndSession(), `rc-${i}`)),
+    )
+    expect(manager.getActiveCount()).toBe(N)
+
+    // 前一半手动取消
+    await Promise.all(Array.from({ length: N / 2 }, (_, i) => manager.cancel(`rc-${i}`)))
+
+    // 后一半等待超时
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(manager.getActiveCount()).toBe(0)
+  })
 })

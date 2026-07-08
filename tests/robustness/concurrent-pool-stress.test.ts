@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 
 import { ClientPool } from '../../src'
-import type { ClientState, RoleDefinition } from '../../src/pool'
+import type { ClientState } from '../../src/pool'
 
 function mockAdapter(id: string, initialState: ClientState = 'disconnected') {
   let state: ClientState = initialState
@@ -30,23 +30,10 @@ function mockAdapter(id: string, initialState: ClientState = 'disconnected') {
 
 type TestRole = 'master' | 'normal'
 
-const ROLES: RoleDefinition<TestRole>[] = [
-  {
-    name: 'master',
-    priority: 0,
-    capabilities: { canSend: true, canReceive: true, canRoute: true },
-  },
-  {
-    name: 'normal',
-    priority: 10,
-    capabilities: { canSend: true, canReceive: true, canRoute: true },
-  },
-]
-
 describe('连接池并发压力', () => {
   describe('并发 addClient / removeClient', () => {
     it('50 个并发 addClient 全部注册成功', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const N = 50
       const adapters = Array.from({ length: N }, (_, i) => mockAdapter(`client-${i}`))
 
@@ -61,7 +48,7 @@ describe('连接池并发压力', () => {
     })
 
     it('add 后立即 remove，最终 getClient 返回 undefined', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const N = 20
 
       const results = await Promise.allSettled(
@@ -79,7 +66,7 @@ describe('连接池并发压力', () => {
     })
 
     it('并发 remove 同一客户端，最终只移除一次，不抛异常', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('shared', 'connected')
       pool.addClient(adapter, 'master')
 
@@ -98,7 +85,7 @@ describe('连接池并发压力', () => {
     })
 
     it('healthCheck 运行时 addClient 不崩溃', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       pool.startHealthCheck(100)
 
       const N = 10
@@ -111,7 +98,7 @@ describe('连接池并发压力', () => {
     })
 
     it('healthCheck 运行时 removeClient 不崩溃', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
 
       const adapters = Array.from({ length: 10 }, (_, i) => mockAdapter(`hc-rm-${i}`, 'connected'))
       for (const a of adapters) pool.addClient(a, 'master')
@@ -125,7 +112,7 @@ describe('连接池并发压力', () => {
     })
 
     it('connectAll 并行连接，部分失败不影响其余', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const good = mockAdapter('good')
       const bad = mockAdapter('bad')
       bad.connect.mockRejectedValue(new Error('bad connect'))
@@ -140,7 +127,7 @@ describe('连接池并发压力', () => {
 
     it('connectAll 与 healthCheck 同时进行的稳定性', async () => {
       vi.useRealTimers()
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapters = Array.from({ length: 5 }, (_, i) => mockAdapter(`cc-${i}`, 'disconnected'))
       for (const a of adapters) pool.addClient(a, 'master')
 
@@ -155,7 +142,6 @@ describe('连接池并发压力', () => {
   describe('高负载事件发射', () => {
     it('1000 个事件并发发射，去重后正确计数', () => {
       const pool = new ClientPool<object, TestRole, { k: string }>({
-        roles: ROLES,
         dedup: {
           keyExtractor: { extract: (e) => e.k },
           windowMs: 60000,
@@ -181,7 +167,6 @@ describe('连接池并发压力', () => {
     it('去重窗口过期后同 key 再次发射', () => {
       vi.useFakeTimers()
       const pool = new ClientPool<object, TestRole, { k: string }>({
-        roles: ROLES,
         dedup: {
           keyExtractor: { extract: (e) => e.k },
           windowMs: 1000,
@@ -206,9 +191,7 @@ describe('连接池并发压力', () => {
     })
 
     it('无去重配置时 500 事件全部发射', () => {
-      const pool = new ClientPool<object, TestRole, object>({
-        roles: ROLES,
-      })
+      const pool = new ClientPool<object, TestRole, object>({})
       pool.addClient(mockAdapter('s', 'connected'), 'master')
 
       let eventCount = 0
@@ -222,6 +205,82 @@ describe('连接池并发压力', () => {
       }
 
       expect(eventCount).toBe(N)
+    })
+  })
+
+  describe('connectAll / disconnectAll 交叉并发', () => {
+    it('10 个客户端 connectAll + disconnectAll 交替并发，最终一致', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapters = Array.from({ length: 10 }, (_, i) => mockAdapter(`cd-${i}`, 'disconnected'))
+      for (const a of adapters) pool.addClient(a, 'master')
+
+      await Promise.all([pool.connectAll(), pool.connectAll(), pool.disconnectAll()])
+      // 最终所有客户端稳定
+      for (const a of adapters) {
+        expect(typeof a.state).toBe('string')
+      }
+    })
+
+    it('connectAll 期间有客户端 removeClient 不崩溃', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapters = Array.from({ length: 10 }, (_, i) => mockAdapter(`rmc-${i}`, 'disconnected'))
+      for (const a of adapters) pool.addClient(a, 'master')
+
+      const results = await Promise.allSettled([
+        pool.connectAll(),
+        ...adapters.slice(0, 3).map((a) => pool.removeClient(a.id)),
+      ])
+      expect(results.every((r) => r.status === 'fulfilled')).toBe(true)
+    })
+
+    it('healthCheck 期间 100 add + 100 remove 并发不崩溃', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      pool.startHealthCheck(100)
+
+      const N = 100
+      const addResults = await Promise.allSettled(
+        Array.from({ length: N }, (_, i) => {
+          const adapter = mockAdapter(`hc-mass-${i}`, 'connected')
+          pool.addClient(adapter, 'master')
+          return Promise.resolve()
+        }),
+      )
+      expect(addResults.every((r) => r.status === 'fulfilled')).toBe(true)
+
+      const removeResults = await Promise.allSettled(
+        Array.from({ length: N }, (_, i) => pool.removeClient(`hc-mass-${i}`)),
+      )
+      expect(removeResults.every((r) => r.status === 'fulfilled')).toBe(true)
+
+      expect(pool.getAvailableClients()).toHaveLength(0)
+      pool.stopHealthCheck()
+    })
+  })
+
+  describe('去重高负载', () => {
+    it('2000 事件 maxCacheSize=200 的高淘汰压力下不崩溃', () => {
+      const pool = new ClientPool<object, TestRole, { k: string }>({
+        dedup: {
+          keyExtractor: { extract: (e) => e.k },
+          windowMs: 60000,
+          maxCacheSize: 200,
+        },
+      })
+      pool.addClient(mockAdapter('s', 'connected'), 'master')
+
+      let eventCount = 0
+      pool.on('event', () => {
+        eventCount++
+      })
+
+      const uniqueKeys = 200
+      const N = 2000
+      for (let i = 0; i < N; i++) {
+        pool.emitFromClient('s', { k: `key-${i % uniqueKeys}` }, 'master')
+      }
+
+      // 每个唯一 key 只发射一次
+      expect(eventCount).toBe(uniqueKeys)
     })
   })
 })

@@ -2,12 +2,10 @@ import { TypedEventEmitter } from '../types'
 
 import type { ClientAdapter, ClientState } from './adapter'
 import { DedupPipeline } from './dedup/pipeline'
-import type { RoleDefinition } from './role'
 import type { AggregatedEvent, DedupOptions, HealthCheckOptions, PoolEventMap } from './types'
 
 /** `ClientPool` 构造选项。`logger` 由门面类自动注入，直接使用时可手动传入。 */
-export interface ClientPoolOptions<TRole extends string, TEvent> {
-  roles: readonly RoleDefinition<TRole>[]
+export interface ClientPoolOptions<TEvent> {
   dedup?: DedupOptions<TEvent>
   healthCheck?: HealthCheckOptions
   logger?: {
@@ -35,13 +33,11 @@ export class ClientPool<
   TEvent = object,
 > extends TypedEventEmitter<PoolEventMap<TEvent>> {
   private readonly clients = new Map<string, ClientEntry<TClient, TRole>>()
-  private readonly roleMap: Map<TRole, RoleDefinition<TRole>>
   private readonly dedup: DedupPipeline<TEvent> | null
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null
 
-  constructor(private readonly options: ClientPoolOptions<TRole, TEvent>) {
+  constructor(private readonly options: ClientPoolOptions<TEvent>) {
     super()
-    this.roleMap = new Map(options.roles.map((r) => [r.name, r]))
     this.dedup = options.dedup ? new DedupPipeline(options.dedup) : null
   }
 
@@ -78,6 +74,11 @@ export class ClientPool<
   /** 按 ID 查询客户端适配器，不存在则返回 `undefined`。 */
   getClient(clientId: string): ClientAdapter<TClient> | undefined {
     return this.clients.get(clientId)?.adapter
+  }
+
+  /** 查询指定客户端所属角色，不存在则返回 `undefined`。 */
+  getClientRole(clientId: string): TRole | undefined {
+    return this.clients.get(clientId)?.role
   }
 
   /** 返回指定角色的全部客户端（含未连接的）。 */

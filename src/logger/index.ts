@@ -189,8 +189,8 @@ export function createLogger(options?: CreateLoggerOptions): PinoLogger {
         try {
           const log = JSON.parse(chunk.toString()) as Record<string, unknown>
           process.stdout.write(formatSpringLine(log, colorize))
-        } catch {
-          // 非 JSON 数据直接透传
+        } catch /* c8 ignore next */ {
+          // 非 JSON 数据直接透传（pino 始终输出 JSON，此分支为防御性代码）
           process.stdout.write(chunk)
         }
         callback()

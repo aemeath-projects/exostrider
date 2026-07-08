@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 import { Context } from '../../../src'
-import { EventDispatcher, FinishError } from '../../../src/dispatch'
+import { CompositeHandlerMapping, EventDispatcher, FinishError } from '../../../src/dispatch'
 import type {
   HandlerInterceptor,
   HandlerMapping,
@@ -927,6 +927,126 @@ describe('EventDispatcher', () => {
 
       await dispatcher.dispatch({}, {})
       expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('声明式'))
+    })
+  })
+
+  // 回归测试：验证 scopeExtractor 在真实 dispatch 调用链路（EventDispatcher → Context 构造 →
+  // 真实 CompositeHandlerMapping.getHandler 的 scope 过滤逻辑）中确实生效，而不仅仅是单独测试
+  // mapping 时手动赋值 ctx.scope。此前 ContextConfig 无 scopeExtractor 字段，dispatch() 内部
+  // 构造的 ctx.scope 恒为 undefined，导致所有声明了非 'all' scope 的 handler 在 mapping 层被
+  // 无声跳过（不进入任何拦截器，日志中完全没有痕迹）。这里必须用真实 CompositeHandlerMapping
+  // （而非 mock），才能覆盖 mapping.ts 里 `handler.scope !== ctx.scope` 的真实过滤分支。
+  describe('scopeExtractor 端到端生效（回归）', () => {
+    it('scopeExtractor 从事件提取 scope，group handler 在私聊事件下被真实 CompositeHandlerMapping 跳过', async () => {
+      const handlerFn = vi.fn().mockResolvedValue(undefined)
+      const handlerMethod = makeHandlerMethod(handlerFn, {
+        scope: 'group',
+        mappingType: 'command',
+        trigger: { cmd: 'test' },
+      })
+
+      const mapping = new CompositeHandlerMapping<SimpleEvent, SimpleApis>()
+      mapping.register(handlerMethod)
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping,
+        contextConfig: {
+          ...contextConfig,
+          scopeExtractor: (e: SimpleEvent) => e.type,
+        },
+      })
+
+      await dispatcher.dispatch({ text: '/test', type: 'private' }, {})
+      expect(handlerFn).not.toHaveBeenCalled()
+    })
+
+    it('scopeExtractor 从事件提取 scope，group handler 在群聊事件下被真实 CompositeHandlerMapping 匹配并调用', async () => {
+      const handlerFn = vi.fn().mockResolvedValue(undefined)
+      const handlerMethod = makeHandlerMethod(handlerFn, {
+        scope: 'group',
+        mappingType: 'command',
+        trigger: { cmd: 'test' },
+      })
+
+      const mapping = new CompositeHandlerMapping<SimpleEvent, SimpleApis>()
+      mapping.register(handlerMethod)
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping,
+        contextConfig: {
+          ...contextConfig,
+          scopeExtractor: (e: SimpleEvent) => e.type,
+        },
+      })
+
+      await dispatcher.dispatch({ text: '/test', type: 'group' }, {})
+      expect(handlerFn).toHaveBeenCalledOnce()
+    })
+
+    it('未配置 scopeExtractor 时 ctx.scope 恒为 undefined，非 all scope 的 handler 永远不会被真实 mapping 匹配', async () => {
+      const handlerFn = vi.fn().mockResolvedValue(undefined)
+      const handlerMethod = makeHandlerMethod(handlerFn, {
+        scope: 'group',
+        mappingType: 'command',
+        trigger: { cmd: 'test' },
+      })
+
+      const mapping = new CompositeHandlerMapping<SimpleEvent, SimpleApis>()
+      mapping.register(handlerMethod)
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping,
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({ text: '/test', type: 'group' }, {})
+      expect(handlerFn).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('contextConfig 边界', () => {
+    it('不传 contextConfig 时使用空对象兜底，分发不崩溃', async () => {
+      const handlerFn = vi.fn().mockResolvedValue(undefined)
+      const handlerMethod = makeHandlerMethod(handlerFn)
+
+      const mapping = makeMockMapping(handlerMethod)
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping,
+      })
+
+      await expect(dispatcher.dispatch({}, {})).resolves.toBeUndefined()
+      expect(handlerFn).toHaveBeenCalled()
+    })
+  })
+
+  describe('声明式 postHandle 非 Error', () => {
+    it('声明式 postHandle 抛出字符串时被转换为 Error 传给 afterCompletion', async () => {
+      const afterCompletionError: (Error | undefined)[] = []
+
+      class PostStringInterceptor {
+        async postHandle(): Promise<void> {
+          // eslint-disable-next-line @typescript-eslint/only-throw-error -- 测试非 Error 值的处理
+          throw 'string post error'
+        }
+        async afterCompletion(_ctx: Ctx, _h: ResolvedHandler, error?: Error): Promise<void> {
+          afterCompletionError.push(error)
+        }
+      }
+
+      const handlerFn = vi.fn().mockResolvedValue(undefined)
+      const handlerMethod = makeHandlerMethod(handlerFn, {
+        interceptors: [{ interceptorClass: PostStringInterceptor }],
+      })
+
+      const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+        mapping: makeMockMapping(handlerMethod),
+        contextConfig,
+      })
+
+      await dispatcher.dispatch({ text: '/test' }, {})
+      expect(handlerFn).toHaveBeenCalled()
+      expect(afterCompletionError[0]).toBeInstanceOf(Error)
+      expect(afterCompletionError[0]?.message).toBe('string post error')
     })
   })
 })

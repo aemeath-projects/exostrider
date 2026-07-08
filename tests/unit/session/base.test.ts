@@ -202,6 +202,77 @@ describe('InteractiveSession 基类', () => {
       const askState = states.find((s) => s.id === 'ask_name')
       expect(askState).toBeDefined()
     })
+
+    it('多状态均未设置 initial:true 时，首个被装饰的状态自动成为初始状态', () => {
+      class MySession extends InteractiveSession {}
+      const session = new MySession()
+
+      function askName() {
+        return Promise.resolve()
+      }
+      function askAge() {
+        return Promise.resolve()
+      }
+      Object.assign(askName, { [STATE_META_KEY]: { id: 'ask_name' } })
+      Object.assign(askAge, { [STATE_META_KEY]: { id: 'ask_age' } })
+
+      const proto = Object.getPrototypeOf(session) as Record<string, unknown>
+      Object.defineProperty(proto, 'askName', { value: askName, configurable: true })
+      Object.defineProperty(proto, 'askAge', { value: askAge, configurable: true })
+
+      const states = buildStatesFromDecorators(session)
+      expect(states).toHaveLength(2)
+      expect(states[0]?.id).toBe('ask_name')
+      expect(states[1]?.id).toBe('ask_age')
+
+      delete proto.askName
+      delete proto.askAge
+    })
+
+    it('构建状态时忽略原型上的 getter 属性', () => {
+      class MySession extends InteractiveSession {
+        // eslint-disable-next-line @typescript-eslint/class-literal-property-style -- 故意使用 getter 以测试非函数属性过滤
+        get version() {
+          return '1.0'
+        }
+      }
+      const session = new MySession()
+
+      function askName() {
+        return Promise.resolve()
+      }
+      Object.assign(askName, { [STATE_META_KEY]: { id: 'ask_name', initial: true } })
+
+      const proto = Object.getPrototypeOf(session) as Record<string, unknown>
+      Object.defineProperty(proto, 'askName', { value: askName, configurable: true })
+
+      const states = buildStatesFromDecorators(session)
+      expect(states).toHaveLength(1)
+      expect(states[0]?.id).toBe('ask_name')
+
+      delete proto.askName
+    })
+
+    it('构建状态时忽略原型上的非函数值属性', () => {
+      class MySession extends InteractiveSession {}
+      const session = new MySession()
+      const proto = Object.getPrototypeOf(session) as Record<string, unknown>
+
+      Object.defineProperty(proto, 'config', { value: { timeout: 5 }, configurable: true })
+
+      function askName() {
+        return Promise.resolve()
+      }
+      Object.assign(askName, { [STATE_META_KEY]: { id: 'ask_name', initial: true } })
+      Object.defineProperty(proto, 'askName', { value: askName, configurable: true })
+
+      const states = buildStatesFromDecorators(session)
+      expect(states).toHaveLength(1)
+      expect(states[0]?.id).toBe('ask_name')
+
+      delete proto.config
+      delete proto.askName
+    })
   })
 })
 

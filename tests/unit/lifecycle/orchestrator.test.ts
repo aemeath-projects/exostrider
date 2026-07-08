@@ -611,4 +611,24 @@ describe('LifecycleOrchestrator — 边界情况', () => {
       /"shared_key" 被多个服务提供/,
     )
   })
+
+  it('entry 同时 provides 和 injects 同一 key 时，_topoSort 不建自循环边但 startup 因 inject 先于 provide 而失败', async () => {
+    class SelfSvc {
+      val = 'ok'
+    }
+
+    const entry = makeEntry('self', {
+      serviceClass: SelfSvc as unknown as new (...args: unknown[]) => unknown,
+      injects: [{ propertyName: 'val', serviceKey: 'self_key' }],
+      provides: [{ propertyName: 'val', serviceKey: 'self_key' }],
+    })
+
+    const registry = new ServiceRegistry()
+    const orchestrator = new LifecycleOrchestrator(registry)
+
+    // _topoSort 不会对 self 建立自循环边（provider === entry.name 被跳过），
+    // 不会触发循环依赖。但因 startup 阶段 inject 先于 provide 执行，
+    // self_key 尚未注册到 registry，所以 inject 会失败。
+    await expect(orchestrator.startup([entry])).rejects.toThrow('未在注册表中找到')
+  })
 })

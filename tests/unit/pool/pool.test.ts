@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 
 import { ClientPool } from '../../../src'
-import type { ClientState, PoolEmitter, RoleDefinition } from '../../../src/pool'
+import type { ClientState, PoolEmitter } from '../../../src/pool'
 
 function mockAdapter(id: string, initialState: ClientState = 'disconnected') {
   let state: ClientState = initialState
@@ -26,30 +26,17 @@ function mockAdapter(id: string, initialState: ClientState = 'disconnected') {
 
 type TestRole = 'master' | 'normal'
 
-const ROLES: RoleDefinition<TestRole>[] = [
-  {
-    name: 'master',
-    priority: 0,
-    capabilities: { canSend: true, canReceive: true, canRoute: true },
-  },
-  {
-    name: 'normal',
-    priority: 10,
-    capabilities: { canSend: true, canReceive: true, canRoute: true },
-  },
-]
-
 describe('ClientPool', () => {
   describe('addClient / getClient / getClientsByRole', () => {
     it('addClient 后可通过 id 查询', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('bot-1')
       pool.addClient(adapter, 'master')
       expect(pool.getClient('bot-1')).toBe(adapter)
     })
 
     it('getClientsByRole 只返回对应角色', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       pool.addClient(mockAdapter('a'), 'master')
       pool.addClient(mockAdapter('b'), 'normal')
       pool.addClient(mockAdapter('c'), 'normal')
@@ -58,7 +45,7 @@ describe('ClientPool', () => {
     })
 
     it('getAvailableClients 只返回 connected 状态的客户端', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const connected = mockAdapter('a', 'connected')
       const disconnected = mockAdapter('b', 'disconnected')
       pool.addClient(connected, 'master')
@@ -68,9 +55,24 @@ describe('ClientPool', () => {
     })
   })
 
+  describe('getClientRole', () => {
+    it('返回已注册客户端的角色', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      pool.addClient(mockAdapter('a'), 'master')
+      pool.addClient(mockAdapter('b'), 'normal')
+      expect(pool.getClientRole('a')).toBe('master')
+      expect(pool.getClientRole('b')).toBe('normal')
+    })
+
+    it('客户端不存在时返回 undefined', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      expect(pool.getClientRole('nonexistent')).toBeUndefined()
+    })
+  })
+
   describe('removeClient', () => {
     it('removeClient 断开连接并移除', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a', 'connected')
       pool.addClient(adapter, 'master')
       await pool.removeClient('a')
@@ -81,7 +83,7 @@ describe('ClientPool', () => {
 
   describe('connectAll / disconnectAll', () => {
     it('connectAll 连接所有客户端', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const a = mockAdapter('a')
       const b = mockAdapter('b')
       pool.addClient(a, 'master')
@@ -94,7 +96,7 @@ describe('ClientPool', () => {
 
   describe('事件聚合与去重', () => {
     it('无去重配置时每个事件都发射', () => {
-      const pool = new ClientPool<object, TestRole, object>({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole, object>({})
       const adapter = mockAdapter('a', 'connected')
       pool.addClient(adapter, 'master')
 
@@ -108,7 +110,6 @@ describe('ClientPool', () => {
 
     it('去重配置下相同 key 的第二次不发射', () => {
       const pool = new ClientPool<object, TestRole, { k: string }>({
-        roles: ROLES,
         dedup: {
           keyExtractor: { extract: (e) => e.k },
           windowMs: 5000,
@@ -127,7 +128,7 @@ describe('ClientPool', () => {
     })
 
     it('AggregatedEvent 包含 sourceClientId 和 sourceRole', () => {
-      const pool = new ClientPool<object, TestRole, object>({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole, object>({})
       const adapter = mockAdapter('a', 'connected')
       pool.addClient(adapter, 'master')
 
@@ -147,7 +148,7 @@ describe('ClientPool', () => {
 
   describe('clientStateChange 事件', () => {
     it('状态变化时发射 clientStateChange', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a', 'disconnected')
       pool.addClient(adapter, 'master')
 
@@ -162,7 +163,7 @@ describe('ClientPool', () => {
 
   describe('addClient 事件', () => {
     it('addClient 发射 clientAdded 事件', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const added: [string, string][] = []
       pool.on('clientAdded', (id, role) => added.push([id, role]))
       pool.addClient(mockAdapter('x'), 'master')
@@ -170,7 +171,7 @@ describe('ClientPool', () => {
     })
 
     it('适配器实现 wireToPool 时 addClient 自动调用', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const wireToPool = vi.fn()
       const adapter = { ...mockAdapter('w'), wireToPool }
       pool.addClient(adapter, 'master')
@@ -179,12 +180,12 @@ describe('ClientPool', () => {
     })
 
     it('适配器未实现 wireToPool 时 addClient 正常完成不抛出', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       expect(() => pool.addClient(mockAdapter('no-wire'), 'normal')).not.toThrow()
     })
 
     it('wireToPool 抛出 Error 时客户端仍注册成功且 clientAdded 正常发射', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = {
         ...mockAdapter('err-wire'),
         wireToPool: vi.fn(() => {
@@ -200,7 +201,7 @@ describe('ClientPool', () => {
     })
 
     it('wireToPool 抛出非 Error 值时仍不中止注册', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = {
         ...mockAdapter('str-wire'),
         wireToPool: vi.fn(() => {
@@ -214,7 +215,7 @@ describe('ClientPool', () => {
 
     it('wireToPool 抛出时有 logger 则调用 logger.error', () => {
       const logger = { warn: vi.fn(), error: vi.fn() }
-      const pool = new ClientPool({ roles: ROLES, logger })
+      const pool = new ClientPool<object, TestRole>({ logger })
       const adapter = {
         ...mockAdapter('log-wire'),
         wireToPool: vi.fn(() => {
@@ -230,7 +231,7 @@ describe('ClientPool', () => {
     })
 
     it('wireToPool 收到的 PoolEmitter 可调用 emitFromClient 和 notifyStateChange', () => {
-      const pool = new ClientPool<object, TestRole, object>({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole, object>({})
       let capturedEmitter: PoolEmitter | undefined
 
       const adapter = {
@@ -258,7 +259,7 @@ describe('ClientPool', () => {
 
   describe('removeClient 额外路径', () => {
     it('removeClient 客户端未连接时不调用 disconnect', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a', 'disconnected')
       pool.addClient(adapter, 'master')
       await pool.removeClient('a')
@@ -267,7 +268,7 @@ describe('ClientPool', () => {
     })
 
     it('removeClient 发射 clientRemoved 事件', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       pool.addClient(mockAdapter('a', 'connected'), 'normal')
       const removed: [string, string][] = []
       pool.on('clientRemoved', (id, role) => removed.push([id, role]))
@@ -277,7 +278,7 @@ describe('ClientPool', () => {
 
     it('removeClient 找不到客户端时调用 logger.warn', async () => {
       const logger = { warn: vi.fn(), error: vi.fn() }
-      const pool = new ClientPool({ roles: ROLES, logger })
+      const pool = new ClientPool<object, TestRole>({ logger })
       await pool.removeClient('nonexistent')
       expect(logger.warn).toHaveBeenCalledWith('removeClient: 客户端不存在', 'nonexistent')
     })
@@ -285,7 +286,7 @@ describe('ClientPool', () => {
 
   describe('getAvailableClients 按角色过滤', () => {
     it('传入 role 时只返回该角色的已连接客户端', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       pool.addClient(mockAdapter('m1', 'connected'), 'master')
       pool.addClient(mockAdapter('n1', 'connected'), 'normal')
       pool.addClient(mockAdapter('n2', 'disconnected'), 'normal')
@@ -296,7 +297,7 @@ describe('ClientPool', () => {
 
   describe('disconnectAll', () => {
     it('只断开 connected 状态的客户端，跳过未连接的', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const connected = mockAdapter('a', 'connected')
       const disconnected = mockAdapter('b', 'disconnected')
       pool.addClient(connected, 'master')
@@ -309,7 +310,7 @@ describe('ClientPool', () => {
 
   describe('connectAll 错误处理', () => {
     it('connect() 抛出 Error 实例时发射 error 事件', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a')
       adapter.connect.mockRejectedValue(new Error('conn failed'))
       pool.addClient(adapter, 'master')
@@ -324,7 +325,7 @@ describe('ClientPool', () => {
     })
 
     it('connect() 抛出非 Error 值时包装为 Error 再发射', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a')
       adapter.connect.mockRejectedValue('string error')
       pool.addClient(adapter, 'master')
@@ -339,7 +340,7 @@ describe('ClientPool', () => {
 
     it('有 logger 时记录连接错误', async () => {
       const logger = { warn: vi.fn(), error: vi.fn() }
-      const pool = new ClientPool({ roles: ROLES, logger })
+      const pool = new ClientPool<object, TestRole>({ logger })
       const adapter = mockAdapter('a')
       adapter.connect.mockRejectedValue(new Error('fail'))
       pool.addClient(adapter, 'master')
@@ -359,7 +360,7 @@ describe('ClientPool', () => {
     })
 
     it('重复调用 startHealthCheck 不创建重复定时器', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a', 'connected')
       pool.addClient(adapter, 'master')
 
@@ -372,12 +373,12 @@ describe('ClientPool', () => {
     })
 
     it('stopHealthCheck 无定时器时无副作用', () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       expect(() => pool.stopHealthCheck()).not.toThrow()
     })
 
     it('stopHealthCheck 后不再触发健康检查', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a', 'connected')
       pool.addClient(adapter, 'master')
 
@@ -398,7 +399,7 @@ describe('ClientPool', () => {
     })
 
     it('healthCheck 返回 true 且 prevState 未变时不发射 clientStateChange', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a', 'connected')
       adapter.healthCheck.mockResolvedValue(true)
       pool.addClient(adapter, 'master')
@@ -414,7 +415,7 @@ describe('ClientPool', () => {
     })
 
     it('healthCheck 返回 false 时发射 clientStateChange(connected → disconnected)', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a', 'connected')
       adapter.healthCheck.mockResolvedValue(false)
       pool.addClient(adapter, 'master')
@@ -431,7 +432,7 @@ describe('ClientPool', () => {
     })
 
     it('healthCheck 抛出时状态变为 error 并发射 clientStateChange', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a', 'connected')
       adapter.healthCheck.mockRejectedValue(new Error('network error'))
       pool.addClient(adapter, 'master')
@@ -448,7 +449,7 @@ describe('ClientPool', () => {
     })
 
     it('healthCheck 连续抛出且 prevState 已为 error 时不重复发射', async () => {
-      const pool = new ClientPool({ roles: ROLES })
+      const pool = new ClientPool<object, TestRole>({})
       const adapter = mockAdapter('a', 'connected')
       adapter.healthCheck.mockRejectedValue(new Error('error'))
       pool.addClient(adapter, 'master')
@@ -467,7 +468,7 @@ describe('ClientPool', () => {
 
     it('healthCheck 抛出时有 logger 则调用 logger.error', async () => {
       const logger = { warn: vi.fn(), error: vi.fn() }
-      const pool = new ClientPool({ roles: ROLES, logger })
+      const pool = new ClientPool<object, TestRole>({ logger })
       const adapter = mockAdapter('a', 'connected')
       adapter.healthCheck.mockRejectedValue(new Error('error'))
       pool.addClient(adapter, 'master')
@@ -481,9 +482,21 @@ describe('ClientPool', () => {
   })
 
   describe('disconnectAll 非 Error 拒绝', () => {
+    it('disconnect 抛出 Error 实例时直接使用原 Error 记录日志', async () => {
+      const logger = { warn: vi.fn(), error: vi.fn() }
+      const pool = new ClientPool<object, TestRole>({ logger })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.disconnect.mockRejectedValue(new Error('network error'))
+      pool.addClient(adapter, 'master')
+
+      await pool.disconnectAll()
+
+      expect(logger.error).toHaveBeenCalledWith('disconnectAll: 客户端断连失败', 'network error')
+    })
+
     it('disconnect 抛出非 Error 值时被转换为 Error 并记录日志', async () => {
       const logger = { warn: vi.fn(), error: vi.fn() }
-      const pool = new ClientPool({ roles: ROLES, logger })
+      const pool = new ClientPool<object, TestRole>({ logger })
       const adapter = mockAdapter('a', 'connected')
       adapter.disconnect.mockRejectedValue('string rejection')
       pool.addClient(adapter, 'master')

@@ -109,6 +109,20 @@ describe('Context', () => {
     expect(ctx.scope).toBe('group')
   })
 
+  it('scope 通过 scopeExtractor 回调在构造时提取', () => {
+    const ctx = new Context(
+      { messageType: 'group' },
+      {},
+      { scopeExtractor: (event: { messageType: string }) => event.messageType },
+    )
+    expect(ctx.scope).toBe('group')
+  })
+
+  it('scope 无 scopeExtractor 时保持 undefined', () => {
+    const ctx = new Context({ messageType: 'group' }, {}, {})
+    expect(ctx.scope).toBeUndefined()
+  })
+
   it('event 和 apis 通过构造函数注入', () => {
     const event = { postType: 'message', text: 'hello' }
     const apis = { sendMsg: () => {} }

@@ -17,7 +17,6 @@ import { ClientPool } from './pool'
 import type {
   ClientPoolOptions,
   RoleDefinition,
-  RoleCapability,
   HealthCheckOptions,
   DedupOptions,
   AggregatedEvent,
@@ -33,7 +32,7 @@ export type { SessionConfig, LockProvider }
 export type { CreateLoggerOptions, PinoLogger }
 export { LogBroadcaster }
 export { ClientPool }
-export type { ClientPoolOptions, RoleDefinition, RoleCapability }
+export type { ClientPoolOptions, RoleDefinition }
 export type { HealthCheckOptions, DedupOptions, AggregatedEvent, PoolEventMap }
 
 /** Exostrider 构造选项。 */
@@ -46,6 +45,7 @@ export interface ExostriderOptions<
   // TPoolClient/TPoolRole 仅在 pool 字段中使用，赋予默认值保证向后兼容
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   TPoolClient = object,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   TPoolRole extends string = string,
 > {
   readonly echo: {
@@ -70,7 +70,7 @@ export interface ExostriderOptions<
    * logger 字段由门面类自动注入，无需用户传入。
    */
   readonly pool?: {
-    readonly options: Omit<ClientPoolOptions<TPoolRole, TEvent>, 'logger'>
+    readonly options: Omit<ClientPoolOptions<TEvent>, 'logger'>
     /**
      * 是否在 bootstrap() 时自动连接所有客户端，默认 true。
      * 设为 false 可用于测试场景或手动控制连接时机。

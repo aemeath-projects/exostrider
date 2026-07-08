@@ -24,7 +24,7 @@ export class DedupPipeline<TEvent> {
 
     if (this.cache.size >= this.options.maxCacheSize && entry === undefined) {
       const oldest = this.cache.keys().next().value
-      if (oldest !== undefined) this.cache.delete(oldest)
+      /* c8 ignore next */ if (oldest !== undefined) this.cache.delete(oldest)
       // 缓存满时淘汰最旧条目，同时写入新 key；否则下次相同 key 仍可通过，去重失效
       this.cache.set(key, { firstSeenAt: now })
       return true

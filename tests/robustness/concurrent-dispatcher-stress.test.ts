@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest'
 
 import type { Context } from '../../src'
 import { EventDispatcher, CompositeHandlerMapping } from '../../src/dispatch'
-import type { HandlerMapping, HandlerMethod } from '../../src/dispatch'
+import type { HandlerMapping, HandlerMethod, ResolvedHandler } from '../../src/dispatch'
 
 type SimpleEvent = Record<string, unknown>
 type SimpleApis = Record<string, unknown>
@@ -243,5 +243,118 @@ describe('分发器高负载压力', () => {
     )
     await expect(Promise.all(tasks)).resolves.toBeDefined()
     expect(finishOrder.length).toBe(N)
+  })
+
+  it('10000 次并发分发，无遗漏无重复', async () => {
+    let callCount = 0
+    const handler = makeHandlerMethod(async () => {
+      callCount++
+    })
+
+    const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+      mapping: makeCompositeMapping([handler]),
+      contextConfig,
+    })
+
+    const N = 10000
+    await Promise.all(Array.from({ length: N }, () => dispatcher.dispatch({}, {})))
+
+    expect(callCount).toBe(N)
+  })
+
+  it('多 handler 混合类型 scope + 拦截器 1000 并发中各正确命中', async () => {
+    const cmdCalls: number[] = []
+    const kwCalls: number[] = []
+
+    const cmdHandler: HandlerMethod = {
+      instance: {
+        handle: async (ctx: Ctx) => {
+          cmdCalls.push(ctx.event.idx as number)
+        },
+      },
+      methodName: 'handle',
+      handlerName: 'cmdHandler',
+      priority: 10,
+      permission: 0,
+      scope: 'group',
+      mappingType: 'command',
+      trigger: { cmd: 'test', aliases: new Set<string>() },
+      interceptors: [],
+      requiredBotCapability: null,
+    }
+    const kwHandler: HandlerMethod = {
+      instance: {
+        handle: async (ctx: Ctx) => {
+          kwCalls.push(ctx.event.idx as number)
+        },
+      },
+      methodName: 'handle',
+      handlerName: 'kwHandler',
+      priority: 20,
+      permission: 0,
+      mappingType: 'keyword',
+      trigger: { keywords: new Set(['hello']) },
+      interceptors: [],
+      requiredBotCapability: null,
+    }
+
+    const mapping: any = new CompositeHandlerMapping('/')
+    mapping.register(cmdHandler)
+    mapping.register(kwHandler)
+
+    const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+      mapping: mapping as HandlerMapping<SimpleEvent, SimpleApis>,
+      contextConfig: {
+        ...contextConfig,
+        scopeExtractor: (e: SimpleEvent) => (e.type as string) ?? 'private',
+      },
+    })
+
+    const N = 1000
+    const tasks: Promise<void>[] = []
+    for (let i = 0; i < N; i++) {
+      const isCmd = i % 2 === 0
+      tasks.push(
+        dispatcher.dispatch(
+          { text: isCmd ? '/test' : 'hello world', idx: i, type: isCmd ? 'group' : 'private' },
+          {},
+        ),
+      )
+    }
+    await Promise.all(tasks)
+    // scope group + cmd 匹配 = N/2
+    expect(cmdCalls.length).toBe(N / 2)
+    // keyword 匹配（scope all 默认）= N/2
+    expect(kwCalls.length).toBe(N / 2)
+  })
+
+  it('1000 并发中部分 postHandle 失败不影响其余 afterCompletion', async () => {
+    let acCallCount = 0
+    let failCount = 0
+
+    class FlakyPostInterceptor {
+      async postHandle(_ctx: Ctx): Promise<void> {
+        throw new Error('post fail')
+      }
+      async afterCompletion(_ctx: Ctx, _h: ResolvedHandler, error?: Error): Promise<void> {
+        acCallCount++
+        if (error) failCount++
+      }
+    }
+
+    const handler = makeHandlerMethod(async () => {}, {
+      interceptors: [{ interceptorClass: FlakyPostInterceptor }],
+    })
+
+    const dispatcher = new EventDispatcher<SimpleEvent, SimpleApis>({
+      mapping: makeCompositeMapping([handler]),
+      contextConfig,
+    })
+
+    const N = 1000
+    await Promise.all(Array.from({ length: N }, () => dispatcher.dispatch({}, {})))
+
+    expect(acCallCount).toBe(N)
+    expect(failCount).toBe(N)
   })
 })

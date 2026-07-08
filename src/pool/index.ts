@@ -1,5 +1,5 @@
 export type { ClientAdapter, ClientState, PoolEmitter } from './adapter'
-export type { RoleDefinition, RoleCapability } from './role'
+export type { RoleDefinition } from './role'
 export type { AggregatedEvent, DedupOptions, HealthCheckOptions, PoolEventMap } from './types'
 export type { DedupKeyExtractor } from './dedup/extractor'
 export { DedupPipeline } from './dedup/pipeline'

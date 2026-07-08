@@ -13,6 +13,8 @@ export interface ContextConfig<TEvent, TApis> {
   readonly argsExtractor?: (event: TEvent, commandPrefix: string) => string[] | undefined
   readonly replyHandler?: (ctx: Context<TEvent, TApis>, content: unknown) => Promise<void>
   readonly commandPrefix?: string
+  /** 从事件中提取消息作用域（如 group/private），用于 @Scope 声明式过滤。未配置时 scope 始终为 undefined。 */
+  readonly scopeExtractor?: (event: TEvent) => string | undefined
 }
 
 /**
@@ -38,7 +40,7 @@ export class Context<TEvent = unknown, TApis = unknown> {
   /** 正则匹配结果（由调度器在 OnRegex 时设置）。 */
   regexMatch: RegExpMatchArray | null = null
 
-  /** 当前消息作用域（由调度器设置）。 */
+  /** 当前消息作用域，由 ContextConfig.scopeExtractor 从事件中提取（未配置提取器时为 undefined）。 */
   scope?: string
 
   private readonly _config: ContextConfig<TEvent, TApis>
@@ -47,6 +49,7 @@ export class Context<TEvent = unknown, TApis = unknown> {
     this.event = event
     this.apis = apis
     this._config = config
+    this.scope = config.scopeExtractor?.(event)
   }
 
   /**

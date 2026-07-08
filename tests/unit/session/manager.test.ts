@@ -314,6 +314,31 @@ describe('SessionManager', () => {
       await manager.start(new NeverEndSession(), 'user:1')
       expect(manager.isActive('user:1')).toBe(true)
     })
+
+    it('超时触发前手动 cancel，超时回调安全退出不崩溃', async () => {
+      vi.useFakeTimers()
+      const onTimeout = vi.fn().mockResolvedValue(undefined)
+
+      class SafeTimeoutSession extends InteractiveSession {
+        override buildStates(): StateDefinition[] {
+          return [{ id: 'waiting' }]
+        }
+        override async onTimeout(_ctx: SessionContext): Promise<void> {
+          onTimeout()
+        }
+      }
+
+      const manager = makeManager(5)
+      await manager.start(new SafeTimeoutSession(), 'user:1')
+
+      // 在超时前手动取消
+      await manager.cancel('user:1')
+      expect(manager.isActive('user:1')).toBe(false)
+
+      // 推进时间至超时之后 —— 不应崩溃，onTimeout 不被调用
+      await vi.advanceTimersByTimeAsync(6000)
+      expect(onTimeout).not.toHaveBeenCalled()
+    })
   })
 
   describe('cancelAll()', () => {

@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 import { Exostrider } from '../../src'
-import type { ExostriderOptions, RoleDefinition } from '../../src'
+import type { ExostriderOptions } from '../../src'
 import { handlerRegistry } from '../../src/dispatch'
 import type { HandlerRegistryData } from '../../src/dispatch'
 import { serviceEntryRegistry } from '../../src/lifecycle'
@@ -232,21 +232,6 @@ describe('Exostrider facade', () => {
 
 // ——— pool 集成测试 ———
 
-type TestRole = 'master' | 'normal'
-
-const TEST_ROLES: RoleDefinition<TestRole>[] = [
-  {
-    name: 'master',
-    priority: 0,
-    capabilities: { canSend: true, canReceive: true, canRoute: true },
-  },
-  {
-    name: 'normal',
-    priority: 10,
-    capabilities: { canSend: true, canReceive: true, canRoute: true },
-  },
-]
-
 function makeMockAdapter(id: string) {
   let state: ClientState = 'disconnected'
   return {
@@ -284,7 +269,7 @@ describe('Exostrider facade — pool 集成', () => {
   it('传入 pool 配置时创建 ClientPool', () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
-      pool: { options: { roles: TEST_ROLES } },
+      pool: { options: {} },
     })
     expect(ex.pool).toBeDefined()
   })
@@ -297,7 +282,7 @@ describe('Exostrider facade — pool 集成', () => {
   it('autoConnect 为 true（默认）时 bootstrap 调用 connectAll', async () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
-      pool: { options: { roles: TEST_ROLES } },
+      pool: { options: {} },
     })
     const adapter = makeMockAdapter('bot-1')
     ex.pool!.addClient(adapter, 'master')
@@ -310,7 +295,7 @@ describe('Exostrider facade — pool 集成', () => {
   it('autoConnect 为 false 时 bootstrap 跳过 connectAll', async () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
-      pool: { options: { roles: TEST_ROLES }, autoConnect: false },
+      pool: { options: {}, autoConnect: false },
     })
     const adapter = makeMockAdapter('bot-1')
     ex.pool!.addClient(adapter, 'master')
@@ -325,7 +310,6 @@ describe('Exostrider facade — pool 集成', () => {
       ...makeBaseOptions(),
       pool: {
         options: {
-          roles: TEST_ROLES,
           healthCheck: { intervalMs: 5000 },
         },
       },
@@ -340,7 +324,7 @@ describe('Exostrider facade — pool 集成', () => {
   it('未配置 healthCheck 时 bootstrap 不启动健康检查', async () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
-      pool: { options: { roles: TEST_ROLES } },
+      pool: { options: {} },
     })
     const startSpy = vi.spyOn(ex.pool!, 'startHealthCheck')
 
@@ -354,7 +338,6 @@ describe('Exostrider facade — pool 集成', () => {
       ...makeBaseOptions(),
       pool: {
         options: {
-          roles: TEST_ROLES,
           healthCheck: { intervalMs: 5000 },
         },
       },
@@ -373,7 +356,7 @@ describe('Exostrider facade — pool 集成', () => {
   it('门面 logger 注入到 ClientPool', async () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
-      pool: { options: { roles: TEST_ROLES }, autoConnect: false },
+      pool: { options: {}, autoConnect: false },
     })
     // 门面 logger 注入到 pool，两者共享同一 logger 引用体现为 pool 警告经 ex.logger 输出
     const warnSpy = vi.spyOn(ex.logger, 'warn')
@@ -385,7 +368,7 @@ describe('Exostrider facade — pool 集成', () => {
   it('pool 暴露预期的 ClientPool 实例 API', () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
-      pool: { options: { roles: TEST_ROLES } },
+      pool: { options: {} },
     })
     const pool = ex.pool!
     expect(typeof pool.addClient).toBe('function')
@@ -399,7 +382,7 @@ describe('Exostrider facade — pool 集成', () => {
   it('bootstrap 前添加的客户端在 bootstrap 时完成连接', async () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
-      pool: { options: { roles: TEST_ROLES } },
+      pool: { options: {} },
     })
     const a = makeMockAdapter('a')
     const b = makeMockAdapter('b')

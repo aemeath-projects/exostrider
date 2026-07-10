@@ -479,6 +479,208 @@ describe('ClientPool', () => {
 
       expect(logger.error).toHaveBeenCalledWith('healthCheck: 客户端异常', 'a')
     })
+
+    it('healthCheck 抛出且适配器实现 forceReconnect 时，调用 forceReconnect 而非直接标记 error', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      const forceReconnect = vi.fn().mockResolvedValue(undefined)
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+      pool.stopHealthCheck()
+
+      expect(forceReconnect).toHaveBeenCalledTimes(1)
+      expect(changes).toHaveLength(0)
+    })
+
+    it('forceReconnect 失败时仍不直接标记 error，只记录日志等待 transport 自身重连', async () => {
+      const logger = { warn: vi.fn(), error: vi.fn() }
+      const pool = new ClientPool<object, TestRole>({ logger })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      const forceReconnect = vi.fn().mockRejectedValue(new Error('reconnect failed'))
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+      pool.stopHealthCheck()
+
+      expect(forceReconnect).toHaveBeenCalledTimes(1)
+      expect(changes).toHaveLength(0)
+      expect(logger.error).toHaveBeenCalledWith(
+        'healthCheck: 强制重连失败，等待 transport 自身重连策略',
+        'a',
+        'reconnect failed',
+      )
+    })
+
+    it('forceReconnect 耗时超过健康检查间隔时，不会被下一次 tick 并发重复调用', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      let concurrent = 0
+      let maxConcurrent = 0
+      const forceReconnect = vi.fn(async () => {
+        concurrent++
+        maxConcurrent = Math.max(maxConcurrent, concurrent)
+        await new Promise((resolve) => setTimeout(resolve, 2500))
+        concurrent--
+      })
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      pool.startHealthCheck(1000)
+      // 4 次 tick（4000ms）远超单次 forceReconnect 耗时（2500ms），
+      // 如果没有重入保护，第 2/3 次 tick 会在第 1 次还没结束时再次调用
+      await vi.advanceTimersByTimeAsync(4000)
+      pool.stopHealthCheck()
+
+      expect(maxConcurrent).toBe(1)
+    })
+
+    it('forceReconnect 从不抛出但连接持续假死时，连续失败达到阈值后仍会标记 error 并通知一次', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      // forceReconnect 本身从不抛异常，但连接实际上一直没有真正恢复
+      // （模拟"transport 自身事件链路从未触发 notifyStateChange"的僵尸连接场景）
+      const forceReconnect = vi.fn().mockResolvedValue(undefined)
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(1000)
+      // 连续 5 次健康检查失败（阈值），第 5 次应该标记 error 并通知
+      await vi.advanceTimersByTimeAsync(5000)
+      pool.stopHealthCheck()
+
+      expect(forceReconnect).toHaveBeenCalledTimes(5)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['a', 'connected', 'error'])
+    })
+
+    it('达到阈值标记 error 后，healthCheck 恢复成功会重新清零并允许再次走向 error', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      const forceReconnect = vi.fn().mockResolvedValue(undefined)
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(5000) // 达到阈值，标记一次 error
+      expect(changes).toHaveLength(1)
+
+      // 健康检查恢复成功：清零连续失败计数，并因为 prevState 已变为 error 而重新通知一次 connected
+      adapter.healthCheck.mockResolvedValue(true)
+      await vi.advanceTimersByTimeAsync(1000)
+      pool.stopHealthCheck()
+
+      expect(changes).toHaveLength(2)
+      expect(changes[1]).toEqual(['a', 'error', 'connected'])
+    })
+
+    it('maxConsecutiveFailures 可通过 healthCheck 配置项自定义阈值', async () => {
+      const pool = new ClientPool<object, TestRole>({
+        healthCheck: { intervalMs: 1000, maxConsecutiveFailures: 2 },
+      })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      const forceReconnect = vi.fn().mockResolvedValue(undefined)
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(1000)
+      // 自定义阈值为 2：第 2 次 tick 就应该标记 error，而不是默认的第 5 次
+      await vi.advanceTimersByTimeAsync(2000)
+      pool.stopHealthCheck()
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['a', 'connected', 'error'])
+    })
+
+    it('forceReconnect 等待期间该客户端被 removeClient 移除时，不会对已移除的 id 发出过期通知', async () => {
+      const pool = new ClientPool<object, TestRole>({
+        healthCheck: { intervalMs: 1000, maxConsecutiveFailures: 1 },
+      })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      let resolveForceReconnect: (() => void) | undefined
+      const forceReconnect = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveForceReconnect = resolve
+          }),
+      )
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000) // 触发第 1 次健康检查，forceReconnect 挂起中
+
+      // 在 forceReconnect 挂起期间移除该客户端（模拟账号被禁用/删除）
+      await pool.removeClient('a')
+
+      // forceReconnect 终于完成——此时 clients map 里已经没有这个 id 了。
+      // maxConsecutiveFailures=1 意味着"是否通知"这条分支一定会执行到，
+      // 若缺少存活性检查，这里会对已移除的 id 发出一次 error 通知。
+      resolveForceReconnect?.()
+      await vi.advanceTimersByTimeAsync(0)
+      pool.stopHealthCheck()
+
+      expect(changes).toHaveLength(0)
+      expect(pool.getClient('a')).toBeUndefined()
+    })
+
+    it('healthCheck() 本身在 removeClient 移除该客户端之后才 reject 时，不会对已移除的适配器调用 forceReconnect', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      let rejectHealthCheck: ((err: Error) => void) | undefined
+      adapter.healthCheck.mockImplementation(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectHealthCheck = reject
+          }),
+      )
+      const forceReconnect = vi.fn().mockResolvedValue(undefined)
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000) // 触发第 1 次健康检查，healthCheck() 挂起中
+
+      // 在 healthCheck() 挂起期间移除该客户端
+      await pool.removeClient('a')
+
+      // healthCheck() 此刻才 reject——此时 clients map 里已经没有这个 id 了，
+      // 不应该再对这个已经被移除的适配器调用 forceReconnect()
+      rejectHealthCheck?.(new Error('network error'))
+      await vi.advanceTimersByTimeAsync(0)
+      pool.stopHealthCheck()
+
+      expect(forceReconnect).not.toHaveBeenCalled()
+    })
   })
 
   describe('disconnectAll 非 Error 拒绝', () => {

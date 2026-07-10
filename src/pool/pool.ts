@@ -18,7 +18,14 @@ interface ClientEntry<TClient, TRole extends string> {
   adapter: ClientAdapter<TClient>
   role: TRole
   prevState: ClientState
+  /** 上一次健康检查触发的 forceReconnect 是否仍在执行，避免其耗时超过检查间隔时被并发重复调用。 */
+  forceReconnectInFlight: boolean
+  /** 连续健康检查失败次数；healthCheck() 成功一次即清零。 */
+  consecutiveHealthCheckFailures: number
 }
+
+/** `maxConsecutiveFailures` 未配置时的默认值。 */
+const DEFAULT_MAX_CONSECUTIVE_HEALTH_CHECK_FAILURES = 5
 
 /**
  * 多客户端连接池，支持角色分类、事件去重和健康检查。
@@ -35,15 +42,27 @@ export class ClientPool<
   private readonly clients = new Map<string, ClientEntry<TClient, TRole>>()
   private readonly dedup: DedupPipeline<TEvent> | null
   private healthCheckTimer: ReturnType<typeof setInterval> | null = null
+  /** 连续健康检查失败达到这个次数后，即使适配器一直"看起来在尝试 forceReconnect"，也强制标记为 error 并通知——
+   *  防止 forceReconnect 本身从不抛出、但连接实际上一直是"假死"（僵尸连接从未真正恢复）时，
+   *  故障状态因为从未有 transport 事件触发 notifyStateChange 而永远不被上报。 */
+  private readonly maxConsecutiveHealthCheckFailures: number
 
   constructor(private readonly options: ClientPoolOptions<TEvent>) {
     super()
     this.dedup = options.dedup ? new DedupPipeline(options.dedup) : null
+    this.maxConsecutiveHealthCheckFailures =
+      options.healthCheck?.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_HEALTH_CHECK_FAILURES
   }
 
   /** 向连接池注册一个客户端适配器，并发射 `clientAdded` 事件。若适配器实现了 `wireToPool`，自动调用完成事件绑定；`wireToPool` 抛出时记录日志但不中止注册流程。 */
   addClient(adapter: ClientAdapter<TClient>, role: TRole): void {
-    this.clients.set(adapter.id, { adapter, role, prevState: adapter.state })
+    this.clients.set(adapter.id, {
+      adapter,
+      role,
+      prevState: adapter.state,
+      forceReconnectInFlight: false,
+      consecutiveHealthCheckFailures: 0,
+    })
     if (adapter.wireToPool) {
       try {
         adapter.wireToPool(this, role)
@@ -164,13 +183,56 @@ export class ClientPool<
         const prev = entry.prevState
         try {
           const alive = await entry.adapter.healthCheck()
+          // 健康检查等待期间该客户端可能已被 removeClient 移除（或以同 id 重新 addClient
+          // 替换成了新条目），此时这次结果已经过期，不应再写回/通知。
+          if (this.clients.get(id) !== entry) return
           const current: ClientState = alive ? 'connected' : 'disconnected'
+          entry.consecutiveHealthCheckFailures = 0
           if (current !== prev) {
             entry.prevState = current
             this.notifyStateChange(id, prev, current)
           }
         } catch {
+          // healthCheck() 等待期间该客户端可能已被 removeClient 移除（或以同 id 重新
+          // addClient 替换成了新条目）——此时这次失败结果已经过期，既不该记日志/累加
+          // 失败计数，更不该对一个已经不在池子里的适配器调用 forceReconnect()。
+          if (this.clients.get(id) !== entry) return
           this.options.logger?.error('healthCheck: 客户端异常', id)
+          entry.consecutiveHealthCheckFailures++
+          if (entry.adapter.forceReconnect) {
+            // 强制重连本身不在这里判定成功与否——真实结果由 transport 的
+            // close/connect/giveUp 事件链路驱动 notifyStateChange，避免引入
+            // 与该链路冲突的第二套状态源。但如果上一次 forceReconnect 还没
+            // 结束，本次 tick 跳过，避免耗时的重连被并发重复调用。
+            if (!entry.forceReconnectInFlight) {
+              entry.forceReconnectInFlight = true
+              try {
+                await entry.adapter.forceReconnect()
+              } catch (reconnectErr) {
+                this.options.logger?.error(
+                  'healthCheck: 强制重连失败，等待 transport 自身重连策略',
+                  id,
+                  reconnectErr instanceof Error ? reconnectErr.message : String(reconnectErr),
+                )
+              } finally {
+                entry.forceReconnectInFlight = false
+              }
+            }
+            // forceReconnect 等待期间该客户端同样可能已被移除/替换，过期结果不再处理。
+            if (this.clients.get(id) !== entry) return
+            // 连续多次健康检查都失败，说明 forceReconnect 从未真正让连接恢复
+            // 可用（哪怕 forceReconnect() 本身一直不抛异常）——这种情况下 transport
+            // 自身的事件链路可能永远不会触发，必须有一个兜底上报，否则故障会
+            // 无限期不可见。
+            if (
+              entry.consecutiveHealthCheckFailures >= this.maxConsecutiveHealthCheckFailures &&
+              prev !== 'error'
+            ) {
+              entry.prevState = 'error'
+              this.notifyStateChange(id, prev, 'error')
+            }
+            return
+          }
           if (prev !== 'error') {
             entry.prevState = 'error'
             this.notifyStateChange(id, prev, 'error')

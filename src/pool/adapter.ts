@@ -17,4 +17,6 @@ export interface ClientAdapter<TClient> {
   healthCheck(): Promise<boolean>
   /** 可选：在 addClient 时由连接池自动调用，绑定客户端原生事件到连接池。 */
   wireToPool?(pool: PoolEmitter, role: string): void
+  /** 可选：健康检查判定连接假死（healthCheck 抛异常）时调用，尝试断开重建连接。未实现时保持原有直接标记 error 的行为。 */
+  forceReconnect?(): Promise<void>
 }

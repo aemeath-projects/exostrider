@@ -46,7 +46,7 @@ bootstrap 流程：
   handlerRegistry.instantiate()   ← Handler 实例化 + 依赖注入
   handlerRegistry.buildMappings() ← 构建 CompositeHandlerMapping
   new EventDispatcher(mapping)    ← 分发器就绪
-  pool.connectAll() + startHealthCheck() ← 可选，pool 配置后自动执行
+  pool.connectAll() + startStatePolling() ← 可选，pool 配置 statePollingIntervalMs 后自动执行
 ```
 
 ### 六个模块
@@ -77,7 +77,7 @@ bootstrap 流程：
 
 **Pool** (`src/pool/`)
 - `ClientPool<TClient, TRole, TEvent>`：管理多个 `ClientAdapter` 实例，按角色字符串（`TRole`）分类，支持连接/断开、健康检测；`getClientRole(clientId)` 可反查已注册客户端的角色。
-- `ClientAdapter`：由宿主实现的协议适配器接口，包含 `connect()`/`disconnect()`/`healthCheck()`。可选方法 `wireToPool?(pool: PoolEmitter, role: string): void` 在 `addClient()` 时由连接池自动调用，用于将客户端原生事件绑定到连接池；`PoolEmitter` 是为避免循环依赖而抽取的最小接口。
+- `ClientAdapter`：由宿主实现的协议适配器接口，仅含 `connect()`/`disconnect()`（连接生命周期——何时重连、何时放弃——完全由适配器背后的客户端自行决定，连接池不再提供 `healthCheck`/`forceReconnect` 等反向操作生命周期的方法）。可选方法 `wireToPool?(pool: PoolEmitter, role: string): void` 在 `addClient()` 时由连接池自动调用，用于将客户端原生事件绑定到连接池；`PoolEmitter` 是为避免循环依赖而抽取的最小接口。`ClientState` 新增 `reconnecting` 状态，供适配器上报重连中的观测态。
 - **路由策略**：`StickyStrategy`（同一 key 总路由到同一客户端）、`PriorityStrategy`（按 `priority` 数值升序优先）、`PriorityStickyStrategy`（两者结合）——这里的 `priority` 由调用方在构造 `RoutingCandidate` 时传入，与 `RoleDefinition.priority` 是两回事；`RoleDefinition`（`name`/`priority`）仅供宿主自行组织角色优先级语义，`ClientPool` 本身不消费它。`RoutingTable` 聚合策略并执行选择。
 - **去重流水线**（`DedupPipeline`）：基于滑动窗口（`windowMs` + `maxCacheSize`）过滤重复事件，Key 由 `DedupKeyExtractor` 提取；收到事件后 emit `AggregatedEvent`。
 - **可选模块**：在 `ExostriderOptions.pool` 中提供配置后，门面类自动在 bootstrap/shutdown 时管理连接生命周期。

@@ -499,4 +499,262 @@ describe('ClientPool', () => {
       expect(logger.error).toHaveBeenCalledWith('disconnectAll: 客户端断连失败', 'string rejection')
     })
   })
+
+  describe('notifyStateChange 边界', () => {
+    it('不存在的 clientId 仍发射 clientStateChange（不依赖 entry 存在）', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.notifyStateChange('nonexistent', 'connected', 'disconnected')
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['nonexistent', 'connected', 'disconnected'])
+    })
+
+    it('同一个 to 状态只发射一次 clientStateChange（直接调用去重）', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      pool.addClient(adapter, 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.notifyStateChange('a', 'connected', 'reconnecting')
+      pool.notifyStateChange('a', 'reconnecting', 'reconnecting')
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['a', 'connected', 'reconnecting'])
+    })
+
+    it('to 与 prevState 相同且 entry 存在时不 emit', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      pool.addClient(mockAdapter('a', 'disconnected'), 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.notifyStateChange('a', 'disconnected', 'disconnected')
+
+      expect(changes).toHaveLength(0)
+    })
+
+    it('连续多次不同状态变化，每一次都正确通知并更新 prevState', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      pool.addClient(adapter, 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.notifyStateChange('a', 'connected', 'reconnecting')
+      pool.notifyStateChange('a', 'reconnecting', 'disconnected')
+      pool.notifyStateChange('a', 'disconnected', 'connected')
+
+      expect(changes).toHaveLength(3)
+      expect(changes[0]).toEqual(['a', 'connected', 'reconnecting'])
+      expect(changes[1]).toEqual(['a', 'reconnecting', 'disconnected'])
+      expect(changes[2]).toEqual(['a', 'disconnected', 'connected'])
+    })
+
+    it('clientStateChange 无监听器时不抛异常', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      pool.addClient(mockAdapter('a', 'connected'), 'master')
+      expect(() => pool.notifyStateChange('a', 'connected', 'error')).not.toThrow()
+    })
+  })
+
+  describe('reconnecting 状态', () => {
+    it('reconnecting 状态不在 getAvailableClients 中', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      pool.addClient(mockAdapter('a', 'reconnecting'), 'master')
+      expect(pool.getAvailableClients().map((c) => c.id)).toEqual([])
+    })
+
+    it('getAvailableClients 包含 connected 但不含 reconnecting', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      pool.addClient(mockAdapter('c', 'connected'), 'master')
+      pool.addClient(mockAdapter('r', 'reconnecting'), 'master')
+      pool.addClient(mockAdapter('d', 'disconnected'), 'normal')
+      const ids = pool.getAvailableClients().map((c) => c.id)
+      expect(ids).toEqual(['c'])
+    })
+
+    it('notifyStateChange 正确传播 reconnecting → connected', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'reconnecting')
+      pool.addClient(adapter, 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.notifyStateChange('a', 'reconnecting', 'connected')
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['a', 'reconnecting', 'connected'])
+    })
+
+    it('notifyStateChange 正确传播 connected → reconnecting', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      pool.addClient(adapter, 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.notifyStateChange('a', 'connected', 'reconnecting')
+
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['a', 'connected', 'reconnecting'])
+    })
+
+    it('removeClient 对 reconnecting 状态客户端不调用 disconnect（仅 connected 才调用）', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'reconnecting')
+      pool.addClient(adapter, 'master')
+      await pool.removeClient('a')
+      expect(adapter.disconnect).not.toHaveBeenCalled()
+      expect(pool.getClient('a')).toBeUndefined()
+    })
+  })
+
+  describe('_pollState 并发与多客户端', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('多客户端同时轮询：部分状态变化、部分不变，只通知变化的', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapters = [
+        mockAdapter('a', 'connected'),
+        mockAdapter('b', 'connected'),
+        mockAdapter('c', 'disconnected'),
+        mockAdapter('d', 'disconnected'),
+      ]
+      for (const a of adapters) pool.addClient(a, 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      // 只改 a 和 c
+      adapters[0]._setState('reconnecting')
+      adapters[2]._setState('connected')
+
+      pool.startStatePolling(100)
+      vi.advanceTimersByTime(100)
+      pool.stopStatePolling()
+
+      expect(changes).toHaveLength(2)
+      const changeIds = changes.map((c) => (c as unknown[])[0])
+      expect(changeIds).toContain('a')
+      expect(changeIds).toContain('c')
+    })
+
+    it('轮询中新增客户端（prevState 与 adapter.state 一致）不误报变化', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      pool.addClient(mockAdapter('a', 'connected'), 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startStatePolling(100)
+      pool.addClient(mockAdapter('b', 'connected'), 'master')
+      vi.advanceTimersByTime(100)
+      pool.stopStatePolling()
+
+      expect(changes).toHaveLength(0)
+    })
+
+    it('跨多次轮询 tick 的连续状态迁移', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      pool.addClient(adapter, 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startStatePolling(100)
+
+      adapter._setState('reconnecting')
+      vi.advanceTimersByTime(100)
+      adapter._setState('disconnected')
+      vi.advanceTimersByTime(100)
+
+      pool.stopStatePolling()
+
+      expect(changes).toEqual([
+        ['a', 'connected', 'reconnecting'],
+        ['a', 'reconnecting', 'disconnected'],
+      ])
+    })
+
+    it('轮询期间 removeClient 后不再对同一 id 轮询', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      pool.addClient(adapter, 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startStatePolling(100)
+      await pool.removeClient('a')
+      adapter._setState('disconnected')
+      vi.advanceTimersByTime(100)
+      pool.stopStatePolling()
+
+      expect(changes).toHaveLength(0)
+    })
+  })
+
+  describe('startStatePolling / stopStatePolling 高频切换', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('快速多次开关轮询，timer 不泄漏', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      for (let i = 0; i < 50; i++) {
+        pool.startStatePolling(100)
+        pool.stopStatePolling()
+      }
+
+      expect((pool as any).statePollingTimer).toBeNull()
+    })
+
+    it('stopStatePolling → startStatePolling 重新启动可正常工作', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      pool.addClient(adapter, 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startStatePolling(100)
+      pool.stopStatePolling()
+
+      // 重新启动
+      pool.startStatePolling(200)
+      adapter._setState('reconnecting')
+      vi.advanceTimersByTime(200)
+      pool.stopStatePolling()
+
+      expect(changes).toHaveLength(1)
+    })
+
+    it('同时连续 startStatePolling 多次不创建多余定时器', () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter = mockAdapter('a', 'connected')
+      pool.addClient(adapter, 'master')
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startStatePolling(100)
+      pool.startStatePolling(200)
+      pool.startStatePolling(300)
+
+      adapter._setState('disconnected')
+      vi.advanceTimersByTime(300)
+      pool.stopStatePolling()
+
+      expect(changes).toHaveLength(1) // 只一个定时器注册
+    })
+  })
 })

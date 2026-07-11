@@ -28,7 +28,7 @@
 
 ## 连接池安全（ClientPool）
 
-- `ClientAdapter` 由宿主实现，库视其为不可信外部代码；`healthCheck()`、`connect()`、`disconnect()` 的抛出异常必须被 `ClientPool` 内部捕获并记录，不得透传为未处理拒绝
+- `ClientAdapter` 由宿主实现，库视其为不可信外部代码；`connect()`、`disconnect()`、`wireToPool()` 的抛出异常必须被 `ClientPool` 内部捕获并记录，不得透传为未处理拒绝。`ClientPool` 不再提供 `healthCheck()` 反向操作接口，连接生命周期完全由适配器自行负责
 - **禁止**将 `ClientAdapter.client`（原始协议客户端）直接暴露给 Handler 层；应通过 Pool 事件（`AggregatedEvent`）传递消息，由宿主控制客户端访问权限
 - 路由策略（`RoutingStrategy`）的输入来自事件 payload，**禁止**在策略实现中将路由 key 用于路径拼接或代码执行
 

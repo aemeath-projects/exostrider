@@ -33,7 +33,7 @@
 
 ## 连接池（Pool）
 
-- `healthCheck.intervalMs` 不应设置过小（建议 ≥ 30000ms），避免高频健康检测阻塞正常消息处理
+- `statePollingIntervalMs` 不应设置过小（建议 ≥ 30000ms）；该值仅用于被动轮询 `adapter.state` 做 diff，连接池不会因轮询结果主动采取重连等行动
 - `DedupPipeline` 的 `maxCacheSize` 必须设置合理上限，防止滑动窗口缓存无限增长；窗口关闭后缓存自动清理
 - `ClientPool` 的 `connectAll()` 并发连接所有客户端，**禁止**在连接回调中执行耗时同步操作（阻塞事件循环）
 - Pool 事件（`event`、`clientStateChange`）通过 `TypedEventEmitter` 分发，监听器应快速返回，耗时处理放入异步队列

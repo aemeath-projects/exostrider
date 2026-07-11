@@ -151,3 +151,4 @@ vite.config.ts.timestamp-*
 # Claude Code
 .spec-workflow/
 .serena/
+.superpowers/

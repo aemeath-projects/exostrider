@@ -20,7 +20,7 @@
 | Dispatch  | `src/dispatch/`  | 路由映射、Handler 实例化、拦截器链、事件分发  |
 | Session   | `src/session/`   | 会话管理、状态机、超时取消               |
 | Logger    | `src/logger/`    | pino 封装、全局注入、日志广播           |
-| Pool      | `src/pool/`      | 客户端连接池、角色路由、去重流水线、健康检测      |
+| Pool      | `src/pool/`      | 客户端连接池、角色路由、去重流水线、被动状态轮询观测 |
 | 公共类型      | `src/types/`     | 泛型接口、共享类型定义，**禁止**包含业务逻辑    |
 | 门面        | `src/index.ts`   | `Exostrider` 类，组装六个模块，进程单实例 |
 

@@ -2,6 +2,13 @@
 
 所有版本变更记录
 
+## [1.1.9](https://github.com/aemeath-projects/exostrider/compare/v1.1.8...v1.1.9) (2026-07-11)
+
+
+### 重构
+
+* **pool:** 精简为纯观测聚合，删除 healthCheck/forceReconnect ([90df244](https://github.com/aemeath-projects/exostrider/commit/90df244ce0dcdc82589568a82dd17d6019b4b911))
+
 ## [1.1.8](https://github.com/aemeath-projects/exostrider/compare/v1.1.7...v1.1.8) (2026-07-11)
 
 

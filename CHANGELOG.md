@@ -2,6 +2,13 @@
 
 所有版本变更记录
 
+## [1.1.8](https://github.com/aemeath-projects/exostrider/compare/v1.1.7...v1.1.8) (2026-07-11)
+
+
+### Bug 修复
+
+* **pool:** 健康检查失败时先尝试强制重连，不再单次失败即标记 error ([5992e19](https://github.com/aemeath-projects/exostrider/commit/5992e19988594418df072c4a313773b181463e25))
+
 ## [1.1.7](https://github.com/aemeath-projects/exostrider/compare/v1.1.6...v1.1.7) (2026-07-08)
 
 

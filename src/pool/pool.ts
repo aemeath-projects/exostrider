@@ -2,12 +2,11 @@ import { TypedEventEmitter } from '../types'
 
 import type { ClientAdapter, ClientState } from './adapter'
 import { DedupPipeline } from './dedup/pipeline'
-import type { AggregatedEvent, DedupOptions, HealthCheckOptions, PoolEventMap } from './types'
+import type { AggregatedEvent, DedupOptions, PoolEventMap } from './types'
 
 /** `ClientPool` 构造选项。`logger` 由门面类自动注入，直接使用时可手动传入。 */
 export interface ClientPoolOptions<TEvent> {
   dedup?: DedupOptions<TEvent>
-  healthCheck?: HealthCheckOptions
   logger?: {
     warn(msg: string, ...args: unknown[]): void
     error(msg: string, ...args: unknown[]): void
@@ -18,17 +17,14 @@ interface ClientEntry<TClient, TRole extends string> {
   adapter: ClientAdapter<TClient>
   role: TRole
   prevState: ClientState
-  /** 上一次健康检查触发的 forceReconnect 是否仍在执行，避免其耗时超过检查间隔时被并发重复调用。 */
-  forceReconnectInFlight: boolean
-  /** 连续健康检查失败次数；healthCheck() 成功一次即清零。 */
-  consecutiveHealthCheckFailures: number
 }
 
-/** `maxConsecutiveFailures` 未配置时的默认值。 */
-const DEFAULT_MAX_CONSECUTIVE_HEALTH_CHECK_FAILURES = 5
-
 /**
- * 多客户端连接池，支持角色分类、事件去重和健康检查。
+ * 多客户端连接池，支持角色分类、事件去重和只读状态观测。
+ *
+ * 连接生命周期（是否重连、何时放弃）完全由各 `ClientAdapter` 背后的客户端自行决定，
+ * 本类只负责注册聚合、事件去重、以及被动观测状态变化（wireToPool 实时转发 + 定时轮询兜底），
+ * 不包含任何"发现异常就采取行动"的分支。
  *
  * @typeParam TClient - 具体客户端类型，由宿主传入
  * @typeParam TRole   - 角色枚举类型，约束 `addClient` 的 role 参数
@@ -41,17 +37,11 @@ export class ClientPool<
 > extends TypedEventEmitter<PoolEventMap<TEvent>> {
   private readonly clients = new Map<string, ClientEntry<TClient, TRole>>()
   private readonly dedup: DedupPipeline<TEvent> | null
-  private healthCheckTimer: ReturnType<typeof setInterval> | null = null
-  /** 连续健康检查失败达到这个次数后，即使适配器一直"看起来在尝试 forceReconnect"，也强制标记为 error 并通知——
-   *  防止 forceReconnect 本身从不抛出、但连接实际上一直是"假死"（僵尸连接从未真正恢复）时，
-   *  故障状态因为从未有 transport 事件触发 notifyStateChange 而永远不被上报。 */
-  private readonly maxConsecutiveHealthCheckFailures: number
+  private statePollingTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(private readonly options: ClientPoolOptions<TEvent>) {
     super()
     this.dedup = options.dedup ? new DedupPipeline(options.dedup) : null
-    this.maxConsecutiveHealthCheckFailures =
-      options.healthCheck?.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_HEALTH_CHECK_FAILURES
   }
 
   /** 向连接池注册一个客户端适配器，并发射 `clientAdded` 事件。若适配器实现了 `wireToPool`，自动调用完成事件绑定；`wireToPool` 抛出时记录日志但不中止注册流程。 */
@@ -60,8 +50,6 @@ export class ClientPool<
       adapter,
       role,
       prevState: adapter.state,
-      forceReconnectInFlight: false,
-      consecutiveHealthCheckFailures: 0,
     })
     if (adapter.wireToPool) {
       try {
@@ -143,20 +131,19 @@ export class ClientPool<
     }
   }
 
-  /** 启动定时健康检查，重复调用无副作用（不会创建多个定时器）。 */
-  startHealthCheck(intervalMs: number): void {
-    if (this.healthCheckTimer) return
-    this.healthCheckTimer = setInterval(() => {
-      // _runHealthCheck 内部已全量 try/catch，Promise 拒绝不会逃逸，void 安全
-      void this._runHealthCheck()
+  /** 启动定时状态轮询（无副作用，只读 adapter.state 做 diff），重复调用无副作用（不会创建多个定时器）。 */
+  startStatePolling(intervalMs: number): void {
+    if (this.statePollingTimer) return
+    this.statePollingTimer = setInterval(() => {
+      this._pollState()
     }, intervalMs)
   }
 
-  /** 停止健康检查定时器；未启动时调用无副作用。 */
-  stopHealthCheck(): void {
-    if (this.healthCheckTimer) {
-      clearInterval(this.healthCheckTimer)
-      this.healthCheckTimer = null
+  /** 停止状态轮询定时器；未启动时调用无副作用。 */
+  stopStatePolling(): void {
+    if (this.statePollingTimer) {
+      clearInterval(this.statePollingTimer)
+      this.statePollingTimer = null
     }
   }
 
@@ -172,73 +159,29 @@ export class ClientPool<
     this.emit('event', aggregated)
   }
 
-  /** 内部：通知客户端状态变更。 */
+  /**
+   * 通知客户端状态变更 —— entry.prevState 的唯一写入口。
+   *
+   * 供两处调用：wireToPool 转发的实时 transport 事件、以及 _pollState 的定时轮询。
+   * 若新状态与当前记录的 prevState 相同，判定为重复通知，直接跳过（不 emit），
+   * 从根本上消除"轮询缓存"和"实时事件"两条路径各自维护一份状态、彼此不同步的问题。
+   */
   notifyStateChange(clientId: string, from: ClientState, to: ClientState): void {
+    const entry = this.clients.get(clientId)
+    if (entry) {
+      if (entry.prevState === to) return
+      entry.prevState = to
+    }
     this.emit('clientStateChange', clientId, from, to)
   }
 
-  private async _runHealthCheck(): Promise<void> {
-    await Promise.allSettled(
-      [...this.clients.entries()].map(async ([id, entry]) => {
-        const prev = entry.prevState
-        try {
-          const alive = await entry.adapter.healthCheck()
-          // 健康检查等待期间该客户端可能已被 removeClient 移除（或以同 id 重新 addClient
-          // 替换成了新条目），此时这次结果已经过期，不应再写回/通知。
-          if (this.clients.get(id) !== entry) return
-          const current: ClientState = alive ? 'connected' : 'disconnected'
-          entry.consecutiveHealthCheckFailures = 0
-          if (current !== prev) {
-            entry.prevState = current
-            this.notifyStateChange(id, prev, current)
-          }
-        } catch {
-          // healthCheck() 等待期间该客户端可能已被 removeClient 移除（或以同 id 重新
-          // addClient 替换成了新条目）——此时这次失败结果已经过期，既不该记日志/累加
-          // 失败计数，更不该对一个已经不在池子里的适配器调用 forceReconnect()。
-          if (this.clients.get(id) !== entry) return
-          this.options.logger?.error('healthCheck: 客户端异常', id)
-          entry.consecutiveHealthCheckFailures++
-          if (entry.adapter.forceReconnect) {
-            // 强制重连本身不在这里判定成功与否——真实结果由 transport 的
-            // close/connect/giveUp 事件链路驱动 notifyStateChange，避免引入
-            // 与该链路冲突的第二套状态源。但如果上一次 forceReconnect 还没
-            // 结束，本次 tick 跳过，避免耗时的重连被并发重复调用。
-            if (!entry.forceReconnectInFlight) {
-              entry.forceReconnectInFlight = true
-              try {
-                await entry.adapter.forceReconnect()
-              } catch (reconnectErr) {
-                this.options.logger?.error(
-                  'healthCheck: 强制重连失败，等待 transport 自身重连策略',
-                  id,
-                  reconnectErr instanceof Error ? reconnectErr.message : String(reconnectErr),
-                )
-              } finally {
-                entry.forceReconnectInFlight = false
-              }
-            }
-            // forceReconnect 等待期间该客户端同样可能已被移除/替换，过期结果不再处理。
-            if (this.clients.get(id) !== entry) return
-            // 连续多次健康检查都失败，说明 forceReconnect 从未真正让连接恢复
-            // 可用（哪怕 forceReconnect() 本身一直不抛异常）——这种情况下 transport
-            // 自身的事件链路可能永远不会触发，必须有一个兜底上报，否则故障会
-            // 无限期不可见。
-            if (
-              entry.consecutiveHealthCheckFailures >= this.maxConsecutiveHealthCheckFailures &&
-              prev !== 'error'
-            ) {
-              entry.prevState = 'error'
-              this.notifyStateChange(id, prev, 'error')
-            }
-            return
-          }
-          if (prev !== 'error') {
-            entry.prevState = 'error'
-            this.notifyStateChange(id, prev, 'error')
-          }
-        }
-      }),
-    )
+  /** 无副作用地轮询所有已注册客户端的当前状态，与 prevState 不一致时通知。 */
+  private _pollState(): void {
+    for (const [id, entry] of this.clients.entries()) {
+      const current = entry.adapter.state
+      if (current !== entry.prevState) {
+        this.notifyStateChange(id, entry.prevState, current)
+      }
+    }
   }
 }

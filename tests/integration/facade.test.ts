@@ -246,7 +246,6 @@ function makeMockAdapter(id: string) {
     disconnect: vi.fn(async () => {
       state = 'disconnected'
     }),
-    healthCheck: vi.fn(async () => true),
   }
 }
 
@@ -305,46 +304,44 @@ describe('Exostrider facade — pool 集成', () => {
     expect(adapter.connect).not.toHaveBeenCalled()
   })
 
-  it('配置了 healthCheck.intervalMs 时 bootstrap 启动健康检查', async () => {
+  it('配置了 statePollingIntervalMs 时 bootstrap 启动状态轮询', async () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
       pool: {
-        options: {
-          healthCheck: { intervalMs: 5000 },
-        },
+        options: {},
+        statePollingIntervalMs: 5000,
       },
     })
-    const startSpy = vi.spyOn(ex.pool!, 'startHealthCheck')
+    const startSpy = vi.spyOn(ex.pool!, 'startStatePolling')
 
     await ex.bootstrap()
 
     expect(startSpy).toHaveBeenCalledWith(5000)
   })
 
-  it('未配置 healthCheck 时 bootstrap 不启动健康检查', async () => {
+  it('未配置 statePollingIntervalMs 时 bootstrap 不启动状态轮询', async () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
       pool: { options: {} },
     })
-    const startSpy = vi.spyOn(ex.pool!, 'startHealthCheck')
+    const startSpy = vi.spyOn(ex.pool!, 'startStatePolling')
 
     await ex.bootstrap()
 
     expect(startSpy).not.toHaveBeenCalled()
   })
 
-  it('shutdown 时调用 stopHealthCheck 和 disconnectAll', async () => {
+  it('shutdown 时调用 stopStatePolling 和 disconnectAll', async () => {
     const ex = new Exostrider({
       ...makeBaseOptions(),
       pool: {
-        options: {
-          healthCheck: { intervalMs: 5000 },
-        },
+        options: {},
+        statePollingIntervalMs: 5000,
       },
     })
     const adapter = makeMockAdapter('bot-1')
     ex.pool!.addClient(adapter, 'master')
-    const stopSpy = vi.spyOn(ex.pool!, 'stopHealthCheck')
+    const stopSpy = vi.spyOn(ex.pool!, 'stopStatePolling')
 
     await ex.bootstrap()
     await ex.shutdown()
@@ -374,8 +371,8 @@ describe('Exostrider facade — pool 集成', () => {
     expect(typeof pool.addClient).toBe('function')
     expect(typeof pool.connectAll).toBe('function')
     expect(typeof pool.disconnectAll).toBe('function')
-    expect(typeof pool.startHealthCheck).toBe('function')
-    expect(typeof pool.stopHealthCheck).toBe('function')
+    expect(typeof pool.startStatePolling).toBe('function')
+    expect(typeof pool.stopStatePolling).toBe('function')
     expect(typeof pool.getAvailableClients).toBe('function')
   })
 

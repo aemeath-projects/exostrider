@@ -17,7 +17,6 @@ import { ClientPool } from './pool'
 import type {
   ClientPoolOptions,
   RoleDefinition,
-  HealthCheckOptions,
   DedupOptions,
   AggregatedEvent,
   PoolEventMap,
@@ -33,7 +32,7 @@ export type { CreateLoggerOptions, PinoLogger }
 export { LogBroadcaster }
 export { ClientPool }
 export type { ClientPoolOptions, RoleDefinition }
-export type { HealthCheckOptions, DedupOptions, AggregatedEvent, PoolEventMap }
+export type { DedupOptions, AggregatedEvent, PoolEventMap }
 
 /** Exostrider 构造选项。 */
 export interface ExostriderOptions<
@@ -64,8 +63,8 @@ export interface ExostriderOptions<
   }
   /**
    * 可选连接池配置。提供后，Exostrider 自动管理 ClientPool 生命周期：
-   * - bootstrap() 时调用 connectAll()，并按 healthCheck.intervalMs 启动健康检测
-   * - shutdown() 时调用 stopHealthCheck() + disconnectAll()
+   * - bootstrap() 时调用 connectAll()，并按 statePollingIntervalMs 启动状态轮询
+   * - shutdown() 时调用 stopStatePolling() + disconnectAll()
    *
    * logger 字段由门面类自动注入，无需用户传入。
    */
@@ -76,6 +75,12 @@ export interface ExostriderOptions<
      * 设为 false 可用于测试场景或手动控制连接时机。
      */
     readonly autoConnect?: boolean
+    /**
+     * 提供后，bootstrap() 时以此间隔（ms）启动无副作用的状态轮询
+     * （ClientPool.startStatePolling）；不提供则不启动轮询，完全依赖各
+     * ClientAdapter 通过 wireToPool 主动推送的实时状态事件。
+     */
+    readonly statePollingIntervalMs?: number
   }
   /**
    * 日志器配置：
@@ -217,14 +222,14 @@ export class Exostrider<
       logger: this.logger,
     })
 
-    // 6. 可选 pool —— 连接所有客户端并按配置启动健康检测
+    // 6. 可选 pool —— 连接所有客户端并按配置启动状态轮询
     if (this.pool && this._options.pool) {
       if (this._options.pool.autoConnect !== false) {
         await this.pool.connectAll()
       }
-      const interval = this._options.pool.options.healthCheck?.intervalMs
+      const interval = this._options.pool.statePollingIntervalMs
       if (interval !== undefined) {
-        this.pool.startHealthCheck(interval)
+        this.pool.startStatePolling(interval)
       }
     }
   }
@@ -250,7 +255,7 @@ export class Exostrider<
       await this.session.cancelAll()
     }
     if (this.pool) {
-      this.pool.stopHealthCheck()
+      this.pool.stopStatePolling()
       await this.pool.disconnectAll()
     }
     await this.lifecycle.shutdown()

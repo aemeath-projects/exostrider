@@ -283,4 +283,179 @@ describe('连接池并发压力', () => {
       expect(eventCount).toBe(uniqueKeys)
     })
   })
+
+  describe('forceReconnect 并发安全', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('20 个客户端并发 healthCheck 失败，各 forceReconnect 耗时不同，重入保护互不干扰', async () => {
+      const pool = new ClientPool<object, TestRole>({
+        healthCheck: { intervalMs: 500, maxConsecutiveFailures: 10 },
+      })
+      const tracker = new Map<string, { concurrent: number; maxConcurrent: number }>()
+
+      for (let i = 0; i < 20; i++) {
+        const delay = 500 + (i % 3) * 600
+        const adapter = mockAdapter(`cc${i}`, 'connected')
+        adapter.healthCheck.mockRejectedValue(new Error('fail'))
+        const stats = { concurrent: 0, maxConcurrent: 0 }
+        tracker.set(`cc${i}`, stats)
+        const forceReconnect = vi.fn(async () => {
+          stats.concurrent++
+          stats.maxConcurrent = Math.max(stats.maxConcurrent, stats.concurrent)
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          stats.concurrent--
+        })
+        pool.addClient({ ...adapter, forceReconnect }, 'master')
+      }
+
+      pool.startHealthCheck(500)
+      await vi.advanceTimersByTimeAsync(5000)
+      pool.stopHealthCheck()
+
+      for (const [, stats] of tracker) {
+        expect(stats.maxConcurrent).toBe(1)
+      }
+    })
+
+    it('高频健康检查(10ms) + forceReconnect 耗时 100ms 不掉底，重入保护与阈值兜底同时生效', async () => {
+      const pool = new ClientPool<object, TestRole>({
+        healthCheck: { intervalMs: 10, maxConsecutiveFailures: 5 },
+      })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('fail'))
+
+      let forceReconnectCalls = 0
+      const forceReconnect = vi.fn(async () => {
+        forceReconnectCalls++
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      })
+      pool.addClient({ ...adapter, forceReconnect }, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(10)
+      await vi.advanceTimersByTimeAsync(50)
+      pool.stopHealthCheck()
+
+      expect(forceReconnectCalls).toBe(1)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['a', 'connected', 'error'])
+    })
+
+    it('healthCheck 运行期间 50 客户端 add→remove→re-add(同id) 反复 10 轮不崩溃', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      pool.startHealthCheck(500)
+
+      const results = await Promise.allSettled(
+        Array.from({ length: 10 }, async () => {
+          for (let i = 0; i < 50; i++) {
+            const adapter = mockAdapter(`rnd-${i}`, 'connected')
+            pool.addClient(adapter, 'master')
+            await pool.removeClient(`rnd-${i}`)
+          }
+        }),
+      )
+
+      expect(results.every((r) => r.status === 'fulfilled')).toBe(true)
+      expect(pool.getAvailableClients()).toHaveLength(0)
+      pool.stopHealthCheck()
+    })
+
+    it('healthCheck 期间 connectAll/disconnectAll 并发交叉不崩溃', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapters = Array.from({ length: 10 }, (_, i) => mockAdapter(`int-${i}`, 'disconnected'))
+      for (const a of adapters) pool.addClient(a, 'master')
+
+      pool.startHealthCheck(100)
+      for (let i = 0; i < 3; i++) {
+        await pool.connectAll()
+        await vi.advanceTimersByTimeAsync(100)
+        await pool.disconnectAll()
+        await vi.advanceTimersByTimeAsync(100)
+      }
+      pool.stopHealthCheck()
+    })
+
+    it('healthCheck 挂起期间客户端被移除，完成后不发送过期通知', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const pendingHealthChecks: { resolve: (v: boolean) => void }[] = []
+
+      for (let i = 0; i < 10; i++) {
+        const adapter = mockAdapter(`s-${i}`, 'connected')
+        adapter.healthCheck.mockImplementation(
+          () =>
+            new Promise<boolean>((resolve) => {
+              pendingHealthChecks.push({ resolve })
+            }),
+        )
+        pool.addClient(adapter, 'master')
+      }
+
+      const changes: [string, ClientState, ClientState][] = []
+      pool.on('clientStateChange', (id, from, to) => changes.push([id, from, to]))
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+
+      for (let i = 0; i < 5; i++) {
+        await pool.removeClient(`s-${i}`)
+      }
+
+      for (const hc of pendingHealthChecks) {
+        hc.resolve(false)
+      }
+      await vi.advanceTimersByTimeAsync(0)
+      pool.stopHealthCheck()
+
+      for (const [id] of changes) {
+        expect(id.startsWith('s-')).toBe(true)
+        const idx = Number(id.split('-')[1])
+        expect(idx).toBeGreaterThanOrEqual(5)
+      }
+    })
+
+    it('混合场景 10 有 forceReconnect + 10 无，健康检查全部失败，各自走正确分支', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const forceReconnectCalls: string[] = []
+      const changes: [string, ClientState, ClientState][] = []
+      pool.on('clientStateChange', (id, from, to) => changes.push([id, from, to]))
+
+      for (let i = 0; i < 10; i++) {
+        const adapter = mockAdapter(`w-${i}`, 'connected')
+        adapter.healthCheck.mockRejectedValue(new Error('fail'))
+        pool.addClient(
+          {
+            ...adapter,
+            forceReconnect: vi.fn(async () => {
+              forceReconnectCalls.push(`w-${i}`)
+            }),
+          },
+          'master',
+        )
+      }
+
+      for (let i = 0; i < 10; i++) {
+        const adapter = mockAdapter(`n-${i}`, 'connected')
+        adapter.healthCheck.mockRejectedValue(new Error('fail'))
+        pool.addClient(adapter, 'normal')
+      }
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+      pool.stopHealthCheck()
+
+      expect(forceReconnectCalls.length).toBe(10)
+      const errorChanges = changes.filter(([, , to]) => to === 'error')
+      expect(errorChanges.length).toBe(10)
+      for (const [id] of errorChanges) {
+        expect(id.startsWith('n-')).toBe(true)
+      }
+    })
+  })
 })

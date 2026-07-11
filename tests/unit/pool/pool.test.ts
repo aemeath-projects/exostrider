@@ -681,6 +681,185 @@ describe('ClientPool', () => {
 
       expect(forceReconnect).not.toHaveBeenCalled()
     })
+
+    it('forceReconnect 抛出非 Error 值时日志仍正确格式化', async () => {
+      const logger = { warn: vi.fn(), error: vi.fn() }
+      const pool = new ClientPool<object, TestRole>({ logger })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      const forceReconnect = vi.fn().mockRejectedValue('raw string rejection')
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+      pool.stopHealthCheck()
+
+      expect(logger.error).toHaveBeenCalledWith(
+        'healthCheck: 强制重连失败，等待 transport 自身重连策略',
+        'a',
+        'raw string rejection',
+      )
+    })
+
+    it('同 id 的 removeClient + addClient 后，旧 forceReconnect 完成时不污染新 entry', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter1 = mockAdapter('a', 'connected')
+      adapter1.healthCheck.mockRejectedValue(new Error('network error'))
+      let resolveOldForceReconnect: (() => void) | undefined
+      const forceReconnect1 = vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveOldForceReconnect = resolve
+          }),
+      )
+      const adapterWithForce1 = { ...adapter1, forceReconnect: forceReconnect1 }
+      pool.addClient(adapterWithForce1, 'master')
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+
+      await pool.removeClient('a')
+      const adapter2 = mockAdapter('a', 'connected')
+      const forceReconnect2 = vi.fn().mockResolvedValue(undefined)
+      const adapterWithForce2 = { ...adapter2, forceReconnect: forceReconnect2 }
+      pool.addClient(adapterWithForce2, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      resolveOldForceReconnect?.()
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(forceReconnect2).not.toHaveBeenCalled()
+      expect(changes).toHaveLength(0)
+      pool.stopHealthCheck()
+    })
+
+    it('healthCheck 成功但同 id 已被新 addClient 替换时，旧结果不写回新 entry', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapter1 = mockAdapter('a', 'connected')
+      let resolveOldHealthCheck: ((alive: boolean) => void) | undefined
+      adapter1.healthCheck.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveOldHealthCheck = resolve
+          }),
+      )
+      pool.addClient(adapter1, 'master')
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+
+      await pool.removeClient('a')
+      const adapter2 = mockAdapter('a', 'disconnected')
+      pool.addClient(adapter2, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      resolveOldHealthCheck?.(true)
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(changes).toHaveLength(0)
+      pool.stopHealthCheck()
+    })
+
+    it('多个客户端部分实现 forceReconnect、部分未实现，混合池中各自走正确分支', async () => {
+      const pool = new ClientPool<object, TestRole>({})
+      const adapterWith = mockAdapter('with', 'connected')
+      adapterWith.healthCheck.mockRejectedValue(new Error('network error'))
+      const forceReconnect = vi.fn().mockResolvedValue(undefined)
+      pool.addClient({ ...adapterWith, forceReconnect }, 'master')
+
+      const adapterWithout = mockAdapter('without', 'connected')
+      adapterWithout.healthCheck.mockRejectedValue(new Error('network error'))
+      pool.addClient(adapterWithout, 'normal')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+      pool.stopHealthCheck()
+
+      expect(forceReconnect).toHaveBeenCalledTimes(1)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['without', 'connected', 'error'])
+    })
+
+    it('forceReconnect 连续抛出后 healthCheck 恢复成功一次即清零计数器，后续失败重新计数', async () => {
+      const pool = new ClientPool<object, TestRole>({
+        healthCheck: { intervalMs: 1000, maxConsecutiveFailures: 3 },
+      })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      const forceReconnect = vi.fn().mockRejectedValue(new Error('reconnect failed'))
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(changes).toHaveLength(0)
+
+      adapter.healthCheck.mockResolvedValue(true)
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(changes).toHaveLength(0)
+
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['a', 'connected', 'error'])
+
+      pool.stopHealthCheck()
+    })
+
+    it('maxConsecutiveFailures=1 时第一次失败即标记 error', async () => {
+      const pool = new ClientPool<object, TestRole>({
+        healthCheck: { intervalMs: 1000, maxConsecutiveFailures: 1 },
+      })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      const forceReconnect = vi.fn().mockResolvedValue(undefined)
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+      pool.stopHealthCheck()
+
+      expect(forceReconnect).toHaveBeenCalledTimes(1)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['a', 'connected', 'error'])
+    })
+
+    it('maxConsecutiveFailures=0 时第一次失败即标记 error', async () => {
+      const pool = new ClientPool<object, TestRole>({
+        healthCheck: { intervalMs: 1000, maxConsecutiveFailures: 0 },
+      })
+      const adapter = mockAdapter('a', 'connected')
+      adapter.healthCheck.mockRejectedValue(new Error('network error'))
+      const forceReconnect = vi.fn().mockResolvedValue(undefined)
+      const adapterWithForce = { ...adapter, forceReconnect }
+      pool.addClient(adapterWithForce, 'master')
+
+      const changes: unknown[] = []
+      pool.on('clientStateChange', (...args) => changes.push(args))
+
+      pool.startHealthCheck(1000)
+      await vi.advanceTimersByTimeAsync(1000)
+      pool.stopHealthCheck()
+
+      expect(forceReconnect).toHaveBeenCalledTimes(1)
+      expect(changes).toHaveLength(1)
+      expect(changes[0]).toEqual(['a', 'connected', 'error'])
+    })
   })
 
   describe('disconnectAll 非 Error 拒绝', () => {

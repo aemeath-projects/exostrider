@@ -7,7 +7,12 @@
 import type { Logger as PinoLogger } from 'pino'
 
 import { handlerRegistry, EventDispatcher, CompositeHandlerMapping, Context } from './dispatch'
-import type { ContextConfig, HandlerInterceptor, HandlerRegistry } from './dispatch'
+import type {
+  ContextConfig,
+  DispatchInterceptor,
+  HandlerInterceptor,
+  HandlerRegistry,
+} from './dispatch'
 import { EchoLoader } from './echo'
 import type { EchoConfig, EchoValidator } from './echo'
 import { LifecycleOrchestrator, ServiceRegistry, serviceEntryRegistry } from './lifecycle'
@@ -26,7 +31,7 @@ import type { SessionConfig, LockProvider } from './session'
 
 export type { EchoConfig, EchoValidator }
 export { Context }
-export type { ContextConfig, HandlerInterceptor }
+export type { ContextConfig, HandlerInterceptor, DispatchInterceptor }
 export type { SessionConfig, LockProvider }
 export type { CreateLoggerOptions, PinoLogger }
 export { LogBroadcaster }
@@ -55,6 +60,17 @@ export interface ExostriderOptions<
   readonly dispatch: {
     readonly contextConfig: ContextConfig<TEvent, TApis>
     readonly interceptors?: HandlerInterceptor<TEvent, TApis>[]
+    /** dispatch 级拦截器，每次 dispatch() 恰好执行一次，详见 {@link DispatchInterceptor}。 */
+    readonly dispatchInterceptors?: DispatchInterceptor<TEvent, TApis>[]
+    /**
+     * 自定义 Context 构造工厂。不提供时使用内置 Context 基类，调用方定义的子类新增/
+     * 覆盖的成员不会生效，详见 EventDispatcherOptions.contextFactory 的说明。
+     */
+    readonly contextFactory?: (
+      event: TEvent,
+      apis: TApis,
+      config: ContextConfig<TEvent, TApis>,
+    ) => Context<TEvent, TApis>
   }
   readonly session?: {
     readonly config: SessionConfig
@@ -184,7 +200,9 @@ export class Exostrider<
     return new EventDispatcher<TEvent, TApis>({
       mapping: new CompositeHandlerMapping(),
       interceptors: this._options.dispatch.interceptors,
+      dispatchInterceptors: this._options.dispatch.dispatchInterceptors,
       contextConfig: this._options.dispatch.contextConfig,
+      contextFactory: this._options.dispatch.contextFactory,
       logger: this.logger,
     })
   }
@@ -218,7 +236,9 @@ export class Exostrider<
     this._dispatcher = new EventDispatcher<TEvent, TApis>({
       mapping,
       interceptors: this._options.dispatch.interceptors,
+      dispatchInterceptors: this._options.dispatch.dispatchInterceptors,
       contextConfig: this._options.dispatch.contextConfig,
+      contextFactory: this._options.dispatch.contextFactory,
       logger: this.logger,
     })
 

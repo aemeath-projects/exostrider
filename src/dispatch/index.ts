@@ -7,7 +7,7 @@ export type { ContextConfig } from './context'
 export { Permission, MessageScope } from './constants'
 export type { PermissionLevel, MessageScopeValue } from './constants'
 export { FinishError } from './errors'
-export type { HandlerInterceptor, ResolvedHandler } from './interceptor'
+export type { HandlerInterceptor, ResolvedHandler, DispatchInterceptor } from './interceptor'
 export {
   CompositeHandlerMapping,
   CommandHandlerMapping,

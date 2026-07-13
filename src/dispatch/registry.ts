@@ -4,6 +4,7 @@
  * 泛型 TEvent/TApis 供 buildMappings 用于生成类型安全的 CompositeHandlerMapping。
  */
 
+import { SERVICE_INJECTS, type InjectEntry } from '../lifecycle'
 import type { Logger } from '../types'
 
 import type { MethodMetaEntry, InterceptorEntry } from './decorators'
@@ -87,11 +88,12 @@ export class HandlerRegistry<TEvent = unknown, TApis = unknown> {
     this._instances.clear()
     for (const data of this._entries) {
       const instance = new data.handlerClass()
-      // 通过 metadata 中存储的注入信息注入依赖（SERVICE_INJECTS 兼容）
+      // 通过 metadata 中存储的注入信息注入依赖：必须使用 @Inject 装饰器写入时
+      // 的同一个 SERVICE_INJECTS symbol（模块局部 Symbol()，非 Symbol.for()
+      // 全局注册表），否则读到的永远是 undefined，注入静默失效
       if (injector) {
-        const injectsKey = Symbol.for('service:injects')
-        const injects = (data.metadata as Record<symbol, unknown>)[injectsKey] as
-          { propertyName: string | symbol; serviceKey: string }[] | undefined
+        const injects = (data.metadata as Record<symbol, unknown>)[SERVICE_INJECTS] as
+          InjectEntry[] | undefined
         if (Array.isArray(injects)) {
           for (const inject of injects) {
             const svc = injector(inject.serviceKey)

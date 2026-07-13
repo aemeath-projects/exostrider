@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 
 import { HANDLER_METHODS, CompositeHandlerMapping, HandlerRegistry } from '../../../src/dispatch'
 import type { HandlerRegistryData } from '../../../src/dispatch'
+import { SERVICE_INJECTS } from '../../../src/lifecycle'
 
 /** 创建测试用 HandlerRegistryData */
 function makeRegistryData(
@@ -98,8 +99,10 @@ describe('HandlerRegistry', () => {
         myService?: { greet(): string }
       }
 
+      // 必须使用 @Inject 装饰器写入时的同一个 SERVICE_INJECTS symbol（模块局部
+      // Symbol()，而非 Symbol.for() 全局注册表 key），否则测试无法反映真实契约
       const metadata: DecoratorMetadataObject = {
-        [Symbol.for('service:injects')]: [{ propertyName: 'myService', serviceKey: 'greeter' }],
+        [SERVICE_INJECTS]: [{ propertyName: 'myService', serviceKey: 'greeter' }],
       }
 
       const data: HandlerRegistryData = {

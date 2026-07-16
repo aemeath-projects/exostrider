@@ -694,6 +694,147 @@ describe('SessionManager', () => {
       expect(replyFn).toHaveBeenCalledTimes(1)
       expect(replyFn).toHaveBeenCalledWith('已超时')
     })
+
+    it('警告 reply 抛异常时 logger.error 被调用、会话仍活跃、后续超时流程正常', async () => {
+      vi.useFakeTimers()
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        fatal: vi.fn(),
+      }
+      const replyFn = vi.fn().mockRejectedValue(new Error('reply boom'))
+
+      class WarnErrSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 10,
+            mode: TimeoutMode.NOTIFY,
+            warningBefore: 4,
+            timeoutMessage: '已超时',
+            warningMessage: '还剩 {remaining} 秒',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+        logger,
+      })
+
+      await manager.start(new WarnErrSession(), 'user:1', replyFn)
+
+      await vi.advanceTimersByTimeAsync(6000)
+      expect(logger.error).toHaveBeenCalledWith('超时警告发送异常', expect.any(Error))
+      expect(manager.isActive('user:1')).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(4500)
+      expect(manager.isActive('user:1')).toBe(false)
+    })
+
+    it('NOTIFY 超时 reply 抛异常时 logger.error 记录 onTimeout 钩子异常、会话清理、锁释放可重启', async () => {
+      vi.useFakeTimers()
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        fatal: vi.fn(),
+      }
+      const replyFn = vi.fn().mockRejectedValue(new Error('fail'))
+
+      class TimeoutErrSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 2,
+            mode: TimeoutMode.NOTIFY,
+            warningBefore: 0,
+            timeoutMessage: '超时',
+            warningMessage: '',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+        logger,
+      })
+
+      await manager.start(new TimeoutErrSession(), 'user:1', replyFn)
+      await vi.advanceTimersByTimeAsync(2500)
+
+      expect(logger.error).toHaveBeenCalledWith('onTimeout 钩子异常', expect.any(Error))
+      expect(manager.isActive('user:1')).toBe(false)
+
+      await manager.start(new TimeoutErrSession(), 'user:1', replyFn)
+      expect(manager.isActive('user:1')).toBe(true)
+    })
+
+    it('warningBefore >= duration 时不调度警告定时器', async () => {
+      vi.useFakeTimers()
+      const replyFn = vi.fn().mockResolvedValue(undefined)
+
+      class WaitSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 3,
+            mode: TimeoutMode.NOTIFY,
+            warningBefore: 5,
+            timeoutMessage: '已超时',
+            warningMessage: '不应发送',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+      })
+
+      await manager.start(new WaitSession(), 'user:1', replyFn)
+      await vi.advanceTimersByTimeAsync(3500)
+
+      expect(replyFn).toHaveBeenCalledTimes(1)
+      expect(replyFn).toHaveBeenCalledWith('已超时')
+    })
+
+    it('warningMessage 不含 {remaining} 占位符时原样发送', async () => {
+      vi.useFakeTimers()
+      const replyFn = vi.fn().mockResolvedValue(undefined)
+
+      class WaitSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 10,
+            mode: TimeoutMode.NOTIFY,
+            warningBefore: 4,
+            timeoutMessage: '已超时',
+            warningMessage: '快超时了',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+      })
+
+      await manager.start(new WaitSession(), 'user:1', replyFn)
+
+      await vi.advanceTimersByTimeAsync(6000)
+      expect(replyFn).toHaveBeenCalledWith('快超时了')
+    })
   })
 
   describe('NEVER 超时模式', () => {
@@ -752,6 +893,84 @@ describe('SessionManager', () => {
 
       await manager.start(new NeverSession(), 'user:1')
       await manager.cancel('user:1')
+      expect(manager.isActive('user:1')).toBe(false)
+    })
+
+    it('NEVER 模式互斥：二次 start 被拒绝且 logger.warn 记录 "已存在"', async () => {
+      const logger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        fatal: vi.fn(),
+      }
+
+      class NeverSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 5,
+            mode: TimeoutMode.NEVER,
+            warningBefore: 2,
+            timeoutMessage: '',
+            warningMessage: '',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+        logger,
+      })
+
+      await manager.start(new NeverSession(), 'user:1')
+      await manager.start(new NeverSession(), 'user:1')
+
+      expect(manager.getActiveCount()).toBe(1)
+      expect(logger.warn).toHaveBeenCalled()
+      expect(logger.warn.mock.calls[0][0]).toContain('已存在')
+
+      await manager.cancel('user:1')
+      await manager.start(new NeverSession(), 'user:1')
+      expect(manager.isActive('user:1')).toBe(true)
+    })
+  })
+
+  describe('SILENT 超时模式', () => {
+    it('显式 SILENT TimeoutConfig 对象与数字等效：不发送消息、onTimeout 调用、会话清理', async () => {
+      vi.useFakeTimers()
+      const replyFn = vi.fn().mockResolvedValue(undefined)
+      const onTimeout = vi.fn().mockResolvedValue(undefined)
+
+      class TimeoutSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+        override async onTimeout(_ctx: SessionContext<string>): Promise<void> {
+          onTimeout()
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 2,
+            mode: TimeoutMode.SILENT,
+            warningBefore: 1,
+            timeoutMessage: '不应发送',
+            warningMessage: '不应发送',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+      })
+
+      await manager.start(new TimeoutSession(), 'user:1', replyFn)
+      await vi.advanceTimersByTimeAsync(2500)
+
+      expect(replyFn).not.toHaveBeenCalled()
+      expect(onTimeout).toHaveBeenCalledTimes(1)
       expect(manager.isActive('user:1')).toBe(false)
     })
   })

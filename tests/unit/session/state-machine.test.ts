@@ -327,5 +327,160 @@ describe('StateMachine', () => {
       await sm.start(makeCtx())
       expect(sm.getCurrentState()).toBe('a')
     })
+
+    it('第一个 guard 返回 false、第二个返回 true 时命中第二个 target', async () => {
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          transitions: [
+            { target: 'b', guard: async () => false },
+            { target: 'c', guard: async () => true },
+          ],
+        },
+        { id: 'b' },
+        { id: 'c' },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(sm.getCurrentState()).toBe('c')
+    })
+
+    it('所有 guard 均 false 时停留原状态且 processInput 正常', async () => {
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          transitions: [
+            { target: 'b', guard: async () => false },
+            { target: 'c', guard: async () => false },
+          ],
+          onInput: async () => ({ nextState: 'b' }),
+        },
+        { id: 'b' },
+        { id: 'c' },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(sm.getCurrentState()).toBe('a')
+      await sm.processInput(makeCtx(), 'go')
+      expect(sm.getCurrentState()).toBe('b')
+    })
+
+    it('guard 抛异常时异常传播且当前状态保持为源状态', async () => {
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          transitions: [
+            {
+              target: 'b',
+              guard: async () => {
+                throw new Error('guard boom')
+              },
+            },
+          ],
+        },
+        { id: 'b' },
+      ]
+      const sm = new StateMachine(states)
+      await expect(sm.start(makeCtx())).rejects.toThrow('guard boom')
+      expect(sm.getCurrentState()).toBe('a')
+    })
+
+    it('action 抛异常时异常传播且未发生跳转', async () => {
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          transitions: [
+            {
+              target: 'b',
+              guard: async () => true,
+              action: async () => {
+                throw new Error('action boom')
+              },
+            },
+          ],
+        },
+        { id: 'b' },
+      ]
+      const sm = new StateMachine(states)
+      await expect(sm.start(makeCtx())).rejects.toThrow('action boom')
+      expect(sm.getCurrentState()).toBe('a')
+    })
+
+    it('自动转换 target 不存在时抛出 InvalidTransitionError', async () => {
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          transitions: [{ target: 'ghost', guard: async () => true }],
+        },
+      ]
+      const sm = new StateMachine(states)
+      await expect(sm.start(makeCtx())).rejects.toThrow(InvalidTransitionError)
+      await expect(sm.start(makeCtx())).rejects.toThrow('ghost')
+    })
+
+    it('恰好 10 层连续自动转换成功到达终态', async () => {
+      const states: StateDefinition[] = Array.from({ length: 11 }, (_, i) => ({
+        id: `s${i}`,
+        ...(i < 10 ? { transitions: [{ target: `s${i + 1}` }] } : {}),
+      }))
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(sm.getCurrentState()).toBe('s10')
+    })
+
+    it('恰好 11 层连跳在深度超过上限时抛出 StateMachineError', async () => {
+      const states: StateDefinition[] = Array.from({ length: 11 }, (_, i) => ({
+        id: `s${i}`,
+        transitions: [{ target: i < 10 ? `s${i + 1}` : 's0' }],
+      }))
+      const sm = new StateMachine(states)
+      await expect(sm.start(makeCtx())).rejects.toThrow(StateMachineError)
+      await expect(sm.start(makeCtx())).rejects.toThrow('自动转换深度超过上限')
+    })
+
+    it('processInput 返回 nextState 进入的状态触发自动转换', async () => {
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          onInput: async () => ({ nextState: 'b' }),
+        },
+        { id: 'b', transitions: [{ target: 'c' }] },
+        { id: 'c' },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      await sm.processInput(makeCtx(), 'go')
+      expect(sm.getCurrentState()).toBe('c')
+    })
+
+    it('自动转换全链路执行顺序为 action → 源 onExit → 目标 onEnter', async () => {
+      const order: string[] = []
+      const states: StateDefinition[] = [
+        {
+          id: 'x',
+          onExit: async () => {
+            order.push('exitX')
+          },
+          transitions: [
+            {
+              target: 'y',
+              guard: async () => true,
+              action: async () => {
+                order.push('action')
+              },
+            },
+          ],
+        },
+        {
+          id: 'y',
+          onEnter: async () => {
+            order.push('enterY')
+          },
+        },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(order).toEqual(['action', 'exitX', 'enterY'])
+    })
   })
 })

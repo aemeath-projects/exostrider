@@ -87,7 +87,7 @@ describe('Exostrider facade', () => {
       echo: { config: { echoes: {} }, baseDir: process.cwd() },
       dispatch: { contextConfig: {} },
       session: {
-        config: { sessionTimeout: 60 },
+        config: { timeout: 60 },
         keyExtractor: () => 'key',
       },
     })
@@ -155,7 +155,7 @@ describe('Exostrider facade', () => {
       echo: { config: { echoes: {} }, baseDir: process.cwd() },
       dispatch: { contextConfig: {} },
       session: {
-        config: { sessionTimeout: 60 },
+        config: { timeout: 60 },
         keyExtractor: () => 'key',
       },
     })

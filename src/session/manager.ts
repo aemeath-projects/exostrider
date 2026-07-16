@@ -7,17 +7,25 @@
 import type { Logger } from '../types'
 
 import { type InteractiveSession, buildStatesFromDecorators } from './base'
+import { getCancelCommands } from './config'
+import type { SessionConfig } from './config'
 import { SessionContext } from './context'
-import type { LockProvider, SessionConfig } from './lock'
-import { getCancelCommands, InMemoryLockProvider } from './lock'
+import { TimeoutMode } from './enums'
+import { InMemoryLockProvider } from './lock'
+import type { LockProvider } from './lock'
 import { StateMachine } from './state-machine'
+import { resolveTimeout } from './timeout'
+
+/** NEVER 模式下锁的 TTL（约 68 年，进程生命周期内不会自然过期）。 */
+const NEVER_MODE_LOCK_TTL_MS = 2_147_483_647_000
 
 /** 活跃会话记录。 */
 interface ActiveSession<TContext> {
   readonly session: InteractiveSession<unknown, TContext>
   readonly ctx: SessionContext<TContext>
   readonly stateMachine: StateMachine<TContext>
-  readonly timeout: ReturnType<typeof setTimeout>
+  readonly timeoutHandle?: ReturnType<typeof setTimeout>
+  readonly warningHandle?: ReturnType<typeof setTimeout>
   readonly key: string
 }
 
@@ -65,7 +73,11 @@ export class SessionManager<TContext = unknown> {
     replyFn?: (content: unknown) => Promise<void>,
   ): Promise<void> {
     const key = this._keyExtractor(ctx)
-    const ttl = this._config.sessionTimeout * 1000
+    const timeoutConfig = resolveTimeout(this._config.timeout)
+    const ttl =
+      timeoutConfig.mode === TimeoutMode.NEVER
+        ? NEVER_MODE_LOCK_TTL_MS
+        : timeoutConfig.duration * 1000
 
     const acquired = await this._lock.acquire(key, ttl)
     if (!acquired) {
@@ -83,28 +95,61 @@ export class SessionManager<TContext = unknown> {
 
     const stateMachine = new StateMachine<TContext>(states)
 
-    // 设置超时
-    const timeoutMs = this._config.sessionTimeout * 1000
-    const timeoutHandle: ReturnType<typeof setTimeout> = setTimeout(() => {
-      // setTimeout 回调是同步的，IIFE 内部有完整 try/catch/finally，Promise 拒绝不会逃逸，void 安全
-      void (async () => {
-        const active = this._sessions.get(key)
-        if (active === undefined) return
-        try {
-          await active.session.onTimeout?.(active.ctx)
-        } catch (err) {
-          this._logger?.error('onTimeout 钩子异常', err)
-        } finally {
-          await this._cleanup(key)
-        }
-      })()
-    }, timeoutMs)
+    let warningHandle: ReturnType<typeof setTimeout> | undefined
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined
+
+    if (timeoutConfig.mode !== TimeoutMode.NEVER) {
+      // NOTIFY 模式下，提前 warningBefore 秒发出警告（warningBefore <= 0 时不调度）
+      if (
+        timeoutConfig.mode === TimeoutMode.NOTIFY &&
+        timeoutConfig.warningBefore > 0 &&
+        timeoutConfig.warningBefore < timeoutConfig.duration
+      ) {
+        const warningDelayMs = (timeoutConfig.duration - timeoutConfig.warningBefore) * 1000
+        warningHandle = setTimeout(() => {
+          void (async () => {
+            const active = this._sessions.get(key)
+            if (active === undefined) return
+            try {
+              await active.ctx.reply(
+                timeoutConfig.warningMessage.replace(
+                  '{remaining}',
+                  String(timeoutConfig.warningBefore),
+                ),
+              )
+            } catch (err) {
+              this._logger?.error('超时警告发送异常', err)
+            }
+          })()
+        }, warningDelayMs)
+      }
+
+      const timeoutMs = timeoutConfig.duration * 1000
+      timeoutHandle = setTimeout(() => {
+        // setTimeout 回调是同步的，IIFE 内部有完整 try/catch/finally，Promise 拒绝不会逃逸，void 安全
+        void (async () => {
+          const active = this._sessions.get(key)
+          if (active === undefined) return
+          try {
+            if (timeoutConfig.mode === TimeoutMode.NOTIFY) {
+              await active.ctx.reply(timeoutConfig.timeoutMessage)
+            }
+            await active.session.onTimeout?.(active.ctx)
+          } catch (err) {
+            this._logger?.error('onTimeout 钩子异常', err)
+          } finally {
+            await this._cleanup(key)
+          }
+        })()
+      }, timeoutMs)
+    }
 
     const active: ActiveSession<TContext> = {
       session,
       ctx: sessionCtx,
       stateMachine,
-      timeout: timeoutHandle,
+      timeoutHandle,
+      warningHandle,
       key,
     }
     this._sessions.set(key, active)
@@ -209,7 +254,8 @@ export class SessionManager<TContext = unknown> {
   private async _cleanup(key: string): Promise<void> {
     const active = this._sessions.get(key)
     if (active !== undefined) {
-      clearTimeout(active.timeout)
+      if (active.timeoutHandle !== undefined) clearTimeout(active.timeoutHandle)
+      if (active.warningHandle !== undefined) clearTimeout(active.warningHandle)
       this._sessions.delete(key)
       await this._lock.release(key)
     }

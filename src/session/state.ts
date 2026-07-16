@@ -14,6 +14,12 @@ export interface StateDefinition<TContext = unknown> {
   onInput?(ctx: SessionContext<TContext>, input: string): Promise<StateTransitionResult>
   /** 退出状态时的回调。 */
   onExit?(ctx: SessionContext<TContext>): Promise<void>
+  /**
+   * 进入该状态（onEnter 执行完毕）后自动求值的声明式转换列表，按数组顺序对每个
+   * guard 求值，第一个返回 true 的执行其 action 后自动跳转到 target，不等待用户输入。
+   * 一个都不满足则停留在当前状态，等待用户输入（走 onInput 路径）。
+   */
+  readonly transitions?: readonly TransitionConfig<TContext>[]
 }
 
 /** 状态转换结果。 */

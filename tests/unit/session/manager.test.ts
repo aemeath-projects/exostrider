@@ -6,6 +6,7 @@ import {
   STATE_META_KEY,
   INPUT_META_KEY,
   EXIT_META_KEY,
+  TimeoutMode,
 } from '../../../src/session'
 import type { SessionContext, StateDefinition } from '../../../src/session'
 
@@ -33,7 +34,7 @@ class NeverEndSession extends InteractiveSession {
 
 const makeManager = (timeoutSeconds = 30) =>
   new SessionManager<string>({
-    config: { sessionTimeout: timeoutSeconds },
+    config: { timeout: timeoutSeconds },
     keyExtractor: (ctx: string) => ctx,
   })
 
@@ -98,7 +99,7 @@ describe('SessionManager', () => {
         id: string
       }
       const manager = new SessionManager<Ctx>({
-        config: { sessionTimeout: 30 },
+        config: { timeout: 30 },
         keyExtractor: (ctx) => ctx.id,
       })
       await manager.start(new NeverEndSession(), { id: 'custom-key' })
@@ -201,7 +202,7 @@ describe('SessionManager', () => {
         }
       }
       const manager = new SessionManager<string>({
-        config: { sessionTimeout: 30, cancelCommands: ['/quit'] },
+        config: { timeout: 30, cancelCommands: ['/quit'] },
         keyExtractor: (ctx) => ctx,
       })
       await manager.start(new CancelHookSession(), 'user:1')
@@ -256,7 +257,7 @@ describe('SessionManager', () => {
         }
       }
       const manager = new SessionManager<string>({
-        config: { sessionTimeout: 30 },
+        config: { timeout: 30 },
         keyExtractor: (ctx) => ctx,
         logger,
       })
@@ -411,7 +412,7 @@ describe('SessionManager', () => {
       }
 
       const manager = new SessionManager<string>({
-        config: { sessionTimeout: 1 },
+        config: { timeout: 1 },
         keyExtractor: (ctx) => ctx,
         logger,
       })
@@ -443,7 +444,7 @@ describe('SessionManager', () => {
       }
 
       const manager = new SessionManager<string>({
-        config: { sessionTimeout: 30 },
+        config: { timeout: 30 },
         keyExtractor: (ctx) => ctx,
         logger,
       })
@@ -476,7 +477,7 @@ describe('SessionManager', () => {
       }
 
       const manager = new SessionManager<string>({
-        config: { sessionTimeout: 30 },
+        config: { timeout: 30 },
         keyExtractor: (ctx) => ctx,
         logger,
       })
@@ -566,6 +567,192 @@ describe('SessionManager', () => {
       await manager.cancelAll()
 
       expect(manager.getActiveCount()).toBe(0)
+    })
+  })
+
+  describe('NOTIFY 超时模式', () => {
+    it('到达 warningBefore 时通过 ctx.reply 发送 warningMessage', async () => {
+      vi.useFakeTimers()
+      const replyFn = vi.fn().mockResolvedValue(undefined)
+
+      class WaitSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 10,
+            mode: TimeoutMode.NOTIFY,
+            warningBefore: 4,
+            timeoutMessage: '已超时',
+            warningMessage: '还剩 {remaining} 秒',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+      })
+
+      await manager.start(new WaitSession(), 'user:1', replyFn)
+
+      // 10 - 4 = 6 秒后应触发警告
+      await vi.advanceTimersByTimeAsync(6000)
+      expect(replyFn).toHaveBeenCalledWith('还剩 4 秒')
+      expect(manager.isActive('user:1')).toBe(true) // 警告不结束会话
+    })
+
+    it('到达 duration 时通过 ctx.reply 发送 timeoutMessage 且会话结束', async () => {
+      vi.useFakeTimers()
+      const replyFn = vi.fn().mockResolvedValue(undefined)
+
+      class WaitSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 5,
+            mode: TimeoutMode.NOTIFY,
+            warningBefore: 2,
+            timeoutMessage: '会话已超时结束',
+            warningMessage: '还剩 {remaining} 秒',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+      })
+
+      await manager.start(new WaitSession(), 'user:1', replyFn)
+      await vi.advanceTimersByTimeAsync(5500)
+
+      expect(replyFn).toHaveBeenCalledWith('会话已超时结束')
+      expect(manager.isActive('user:1')).toBe(false)
+    })
+
+    it('会话在警告触发前正常结束，警告定时器被清理不再触发', async () => {
+      vi.useFakeTimers()
+      const replyFn = vi.fn().mockResolvedValue(undefined)
+
+      class FinishSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'start', onInput: async () => ({ finished: true }) }]
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 10,
+            mode: TimeoutMode.NOTIFY,
+            warningBefore: 4,
+            timeoutMessage: '已超时',
+            warningMessage: '还剩 {remaining} 秒',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+      })
+
+      await manager.start(new FinishSession(), 'user:1', replyFn)
+      await manager.processMessage('user:1', 'done')
+      expect(manager.isActive('user:1')).toBe(false)
+
+      // 推进到原本警告应触发的时间点，不应再触发（会话已清理）
+      replyFn.mockClear()
+      await vi.advanceTimersByTimeAsync(10000)
+      expect(replyFn).not.toHaveBeenCalled()
+    })
+
+    it('warningBefore 为 0 时不调度警告定时器，仍正常超时', async () => {
+      vi.useFakeTimers()
+      const replyFn = vi.fn().mockResolvedValue(undefined)
+
+      class WaitSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 3,
+            mode: TimeoutMode.NOTIFY,
+            warningBefore: 0,
+            timeoutMessage: '已超时',
+            warningMessage: '还剩 {remaining} 秒',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+      })
+
+      await manager.start(new WaitSession(), 'user:1', replyFn)
+      await vi.advanceTimersByTimeAsync(3500)
+
+      expect(replyFn).toHaveBeenCalledTimes(1)
+      expect(replyFn).toHaveBeenCalledWith('已超时')
+    })
+  })
+
+  describe('NEVER 超时模式', () => {
+    it('mode 为 never 时，长时间推进定时器也不会触发 onTimeout 或结束会话', async () => {
+      vi.useFakeTimers()
+      const onTimeout = vi.fn().mockResolvedValue(undefined)
+
+      class NeverSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+        override async onTimeout(_ctx: SessionContext<string>): Promise<void> {
+          onTimeout()
+        }
+      }
+
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 5,
+            mode: TimeoutMode.NEVER,
+            warningBefore: 2,
+            timeoutMessage: '不应发送',
+            warningMessage: '不应发送',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+      })
+
+      await manager.start(new NeverSession(), 'user:1')
+      // 推进极长时间（远超 duration），会话应仍然活跃
+      await vi.advanceTimersByTimeAsync(365 * 24 * 60 * 60 * 1000) // 一年
+      expect(onTimeout).not.toHaveBeenCalled()
+      expect(manager.isActive('user:1')).toBe(true)
+    })
+
+    it('mode 为 never 的会话仍可被手动 cancel', async () => {
+      const manager = new SessionManager<string>({
+        config: {
+          timeout: {
+            duration: 5,
+            mode: TimeoutMode.NEVER,
+            warningBefore: 0,
+            timeoutMessage: '',
+            warningMessage: '',
+          },
+        },
+        keyExtractor: (ctx: string) => ctx,
+      })
+
+      class NeverSession extends InteractiveSession<void, string> {
+        override buildStates(): StateDefinition<string>[] {
+          return [{ id: 'waiting' }]
+        }
+      }
+
+      await manager.start(new NeverSession(), 'user:1')
+      await manager.cancel('user:1')
+      expect(manager.isActive('user:1')).toBe(false)
     })
   })
 })

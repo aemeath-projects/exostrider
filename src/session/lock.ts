@@ -2,30 +2,6 @@
  * 会话锁提供者接口与内存实现。
  */
 
-import { DEFAULT_CANCEL_COMMANDS, DEFAULT_CONFIRM_COMMANDS } from './commands'
-
-/** 会话全局配置。 */
-export interface SessionConfig {
-  /** 会话超时秒数。 */
-  readonly sessionTimeout: number
-  /** 超时前提前多少秒发出警告（可选）。 */
-  readonly warningBeforeTimeout?: number
-  /** 取消命令列表，默认为 DEFAULT_CANCEL_COMMANDS。 */
-  readonly cancelCommands?: readonly string[]
-  /** 确认命令列表，默认为 DEFAULT_CONFIRM_COMMANDS。 */
-  readonly confirmCommands?: readonly string[]
-}
-
-/** 获取生效的取消命令集合。 */
-export function getCancelCommands(config: SessionConfig): ReadonlySet<string> {
-  return new Set(config.cancelCommands ?? DEFAULT_CANCEL_COMMANDS)
-}
-
-/** 获取生效的确认命令集合。 */
-export function getConfirmCommands(config: SessionConfig): ReadonlySet<string> {
-  return new Set(config.confirmCommands ?? DEFAULT_CONFIRM_COMMANDS)
-}
-
 /** 锁提供者接口，用于会话互斥。 */
 export interface LockProvider {
   /**

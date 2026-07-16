@@ -31,7 +31,7 @@ class NeverEndSession extends InteractiveSession {
 
 const makeManager = (timeoutSeconds = 30) =>
   new SessionManager<string>({
-    config: { sessionTimeout: timeoutSeconds },
+    config: { timeout: timeoutSeconds },
     keyExtractor: (key: string) => key,
   })
 

@@ -208,4 +208,124 @@ describe('StateMachine', () => {
       await expect(sm.processInput(makeCtx(), 'hello')).rejects.toThrow(StateMachineError)
     })
   })
+
+  describe('transitions（自动转换）', () => {
+    it('start 后自动按 guard 求值转换到 target，不等待用户输入', async () => {
+      const onEnterB = vi.fn().mockResolvedValue(undefined)
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          transitions: [{ target: 'b', guard: async () => true }],
+        },
+        { id: 'b', onEnter: onEnterB },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(sm.getCurrentState()).toBe('b')
+      expect(onEnterB).toHaveBeenCalled()
+    })
+
+    it('guard 返回 false 时停留在原状态', async () => {
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          transitions: [{ target: 'b', guard: async () => false }],
+        },
+        { id: 'b' },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(sm.getCurrentState()).toBe('a')
+    })
+
+    it('多个 transitions 时，第一个 guard 通过的生效，后续不再求值', async () => {
+      const secondGuard = vi.fn().mockResolvedValue(true)
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          transitions: [
+            { target: 'b', guard: async () => true },
+            { target: 'c', guard: secondGuard },
+          ],
+        },
+        { id: 'b' },
+        { id: 'c' },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(sm.getCurrentState()).toBe('b')
+      expect(secondGuard).not.toHaveBeenCalled()
+    })
+
+    it('转换命中时执行 action，且在 action 之后再跳转', async () => {
+      const order: string[] = []
+      const states: StateDefinition[] = [
+        {
+          id: 'a',
+          transitions: [
+            {
+              target: 'b',
+              guard: async () => true,
+              action: async () => {
+                order.push('action')
+              },
+            },
+          ],
+        },
+        {
+          id: 'b',
+          onEnter: async () => {
+            order.push('enterB')
+          },
+        },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(order).toEqual(['action', 'enterB'])
+    })
+
+    it('未定义 guard 时视为始终通过', async () => {
+      const states: StateDefinition[] = [{ id: 'a', transitions: [{ target: 'b' }] }, { id: 'b' }]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(sm.getCurrentState()).toBe('b')
+    })
+
+    it('transitionTo() 进入的状态同样会触发自动转换求值', async () => {
+      const states: StateDefinition[] = [
+        { id: 'a' },
+        { id: 'b', transitions: [{ target: 'c', guard: async () => true }] },
+        { id: 'c' },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      await sm.transitionTo(makeCtx(), 'b')
+      expect(sm.getCurrentState()).toBe('c')
+    })
+
+    it('支持连续多层自动转换（A自动跳到B，B又自动跳到C）', async () => {
+      const states: StateDefinition[] = [
+        { id: 'a', transitions: [{ target: 'b', guard: async () => true }] },
+        { id: 'b', transitions: [{ target: 'c', guard: async () => true }] },
+        { id: 'c' },
+      ]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(sm.getCurrentState()).toBe('c')
+    })
+
+    it('自动转换深度超过上限时抛出 StateMachineError（自引用死循环）', async () => {
+      const states: StateDefinition[] = [{ id: 'loop', transitions: [{ target: 'loop' }] }]
+      const sm = new StateMachine(states)
+      await expect(sm.start(makeCtx())).rejects.toThrow(StateMachineError)
+      await expect(sm.start(makeCtx())).rejects.toThrow('自动转换深度超过上限')
+    })
+
+    it('没有 transitions 字段的状态不受影响（现状行为不变）', async () => {
+      const states: StateDefinition[] = [{ id: 'a' }]
+      const sm = new StateMachine(states)
+      await sm.start(makeCtx())
+      expect(sm.getCurrentState()).toBe('a')
+    })
+  })
 })

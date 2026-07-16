@@ -4,6 +4,7 @@
 
 import type { Logger } from '../types'
 
+import { applyInjects } from './apply-injects'
 import type { ServiceEntry } from './service-entry'
 import type { ServiceRegistry } from './service-registry'
 
@@ -49,9 +50,7 @@ export class LifecycleOrchestrator<TMap extends Record<string, unknown> = Record
         const instance = new (entry.serviceClass as new () => Record<string | symbol, unknown>)()
 
         // 2. 注入 @Inject 字段
-        for (const inject of entry.injects) {
-          instance[inject.propertyName] = this._registry.get(inject.serviceKey)
-        }
+        applyInjects(instance, entry.injects, (key) => this._registry.get(key))
 
         // 3. 调用 @Startup 方法
         if (entry.startupMethod !== null) {

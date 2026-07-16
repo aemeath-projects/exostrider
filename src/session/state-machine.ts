@@ -5,6 +5,9 @@
 import type { SessionContext } from './context'
 import type { StateDefinition, StateTransitionResult } from './state'
 
+/** 单次 start()/transitionTo() 调用内，最多允许连续自动转换的层数，防止 guard 配置错误导致死循环。 */
+const MAX_AUTO_TRANSITION_DEPTH = 10
+
 /** 状态机异常基类。 */
 export class StateMachineError extends Error {
   constructor(message: string) {
@@ -24,7 +27,8 @@ export class InvalidTransitionError extends StateMachineError {
 /**
  * 泛型有限状态机。
  *
- * 支持进入/退出回调、输入处理和显式转换。
+ * 支持进入/退出回调、输入处理、显式转换，以及进入状态后自动求值的声明式转换
+ * （`StateDefinition.transitions`，语义类似 XState 的 `always` transition）。
  */
 export class StateMachine<TContext = unknown> {
   private readonly _states: Map<string, StateDefinition<TContext>>
@@ -67,6 +71,7 @@ export class StateMachine<TContext = unknown> {
     if (state?.onEnter !== undefined) {
       await state.onEnter(ctx)
     }
+    await this._runAutoTransitions(ctx, 0)
   }
 
   /**
@@ -114,6 +119,15 @@ export class StateMachine<TContext = unknown> {
    * @param stateId 目标状态 ID。
    */
   async transitionTo(ctx: SessionContext<TContext>, stateId: string): Promise<void> {
+    await this._enterState(ctx, stateId, 0)
+  }
+
+  /** 退出当前状态、进入目标状态并执行 onEnter，然后对目标状态的 transitions 求值。 */
+  private async _enterState(
+    ctx: SessionContext<TContext>,
+    stateId: string,
+    depth: number,
+  ): Promise<void> {
     if (!this._states.has(stateId)) {
       throw new InvalidTransitionError(`目标状态 '${stateId}' 不存在`)
     }
@@ -131,6 +145,33 @@ export class StateMachine<TContext = unknown> {
     const next = this._states.get(stateId)
     if (next?.onEnter !== undefined) {
       await next.onEnter(ctx)
+    }
+    await this._runAutoTransitions(ctx, depth)
+  }
+
+  /**
+   * 按 `transitions` 数组顺序对当前状态求值，第一个 guard 通过的执行 action 后
+   * 递归进入 target（depth 加一）；一个都不满足则停留在当前状态。
+   */
+  private async _runAutoTransitions(ctx: SessionContext<TContext>, depth: number): Promise<void> {
+    if (this._currentState === null) return
+    const state = this._states.get(this._currentState)
+    const transitions = state?.transitions
+    if (transitions === undefined || transitions.length === 0) return
+
+    if (depth >= MAX_AUTO_TRANSITION_DEPTH) {
+      throw new StateMachineError('自动转换深度超过上限，可能存在循环')
+    }
+
+    for (const transition of transitions) {
+      const shouldTransition = transition.guard === undefined ? true : await transition.guard(ctx)
+      if (shouldTransition) {
+        if (transition.action !== undefined) {
+          await transition.action(ctx)
+        }
+        await this._enterState(ctx, transition.target, depth + 1)
+        return
+      }
     }
   }
 }

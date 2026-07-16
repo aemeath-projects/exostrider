@@ -4,7 +4,7 @@
  * 泛型 TEvent/TApis 供 buildMappings 用于生成类型安全的 CompositeHandlerMapping。
  */
 
-import { SERVICE_INJECTS, type InjectEntry } from '../lifecycle'
+import { SERVICE_INJECTS, applyInjects, type InjectEntry } from '../lifecycle'
 import type { Logger } from '../types'
 
 import type { MethodMetaEntry, InterceptorEntry } from './decorators'
@@ -95,10 +95,7 @@ export class HandlerRegistry<TEvent = unknown, TApis = unknown> {
         const injects = (data.metadata as Record<symbol, unknown>)[SERVICE_INJECTS] as
           InjectEntry[] | undefined
         if (Array.isArray(injects)) {
-          for (const inject of injects) {
-            const svc = injector(inject.serviceKey)
-            ;(instance as Record<string | symbol, unknown>)[inject.propertyName] = svc
-          }
+          applyInjects(instance as Record<string | symbol, unknown>, injects, injector)
         }
       }
       this._instances.set(data.options.name, instance)

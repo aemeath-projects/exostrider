@@ -2,6 +2,7 @@
 
 export { LifecycleOrchestrator } from './orchestrator'
 export { ServiceRegistry } from './service-registry'
+export { applyInjects } from './apply-injects'
 export {
   Inject,
   Provide,

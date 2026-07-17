@@ -2,6 +2,18 @@
 
 所有版本变更记录
 
+## [1.1.10](https://github.com/aemeath-projects/exostrider/compare/v1.1.9...v1.1.10) (2026-07-17)
+
+
+### 新功能
+
+* **dispatch:** 新增 dispatch 级拦截器与自定义 Context 构造工厂，修复 SERVICE_INJECTS 注入失效 ([5d3ba50](https://github.com/aemeath-projects/exostrider/commit/5d3ba507d4e94905438bbd39cfe7be4e0eb8e23b))
+
+
+### 重构
+
+* **lifecycle,session:** 消除 DI 注入逻辑重复，session 模块拆分并接入 TimeoutConfig/TransitionConfig ([1016169](https://github.com/aemeath-projects/exostrider/commit/1016169d0b12fd36d4bec01179b91e42925d3c19))
+
 ## [1.1.9](https://github.com/aemeath-projects/exostrider/compare/v1.1.8...v1.1.9) (2026-07-11)
 
 

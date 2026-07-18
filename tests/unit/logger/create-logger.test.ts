@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createLogger, detectAnsiSupport, logBroadcaster } from '../../../src/logger'
+import { createLogger, detectAnsiSupport, logBroadcaster, runWithTrace } from '../../../src/logger'
 
 // eslint-disable-next-line no-control-regex
 const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '')
@@ -51,6 +51,41 @@ describe('createLogger', () => {
     logBroadcaster.off('log', listener)
     expect(received.length).toBeGreaterThan(0)
   })
+
+  it('在 runWithTrace 上下文中记录日志时，自动附加 traceId 字段', async () => {
+    const received: unknown[] = []
+    const listener = (entry: unknown) => received.push(entry)
+    logBroadcaster.on('log', listener)
+
+    const log = createLogger({ format: 'json', level: 'info' })
+    runWithTrace('trace-mixin-test', () => {
+      log.info('within trace')
+    })
+
+    await new Promise((r) => setTimeout(r, 50))
+    logBroadcaster.off('log', listener)
+
+    const entry = received.find((e) => (e as { msg?: string }).msg === 'within trace') as
+      { traceId?: string } | undefined
+    expect(entry?.traceId).toBe('trace-mixin-test')
+  })
+
+  it('不在 trace 上下文中记录日志时，不附加 traceId 字段', async () => {
+    const received: unknown[] = []
+    const listener = (entry: unknown) => received.push(entry)
+    logBroadcaster.on('log', listener)
+
+    const log = createLogger({ format: 'json', level: 'info' })
+    log.info('without trace')
+
+    await new Promise((r) => setTimeout(r, 50))
+    logBroadcaster.off('log', listener)
+
+    const entry = received.find((e) => (e as { msg?: string }).msg === 'without trace') as
+      { traceId?: string } | undefined
+    expect(entry?.traceId).toBeUndefined()
+  })
+
   it('console 格式输出 Spring Boot 风格日志行', async () => {
     const writes: Buffer[] = []
     const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {

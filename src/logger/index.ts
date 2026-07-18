@@ -10,6 +10,7 @@ import type { Logger } from '../types'
 
 import { LogBroadcaster } from './broadcast'
 import type { LogEntry } from './broadcast'
+import { getTraceId } from './trace'
 
 export type LogFormat = 'json' | 'console'
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal' | 'silent'
@@ -182,6 +183,14 @@ function formatSpringLine(log: Record<string, unknown>, colorize: boolean): stri
 export function createLogger(options?: CreateLoggerOptions): PinoLogger {
   const { level = 'info', format = 'json', redact, base, windowsCompat } = options ?? {}
 
+  // mixin 由 pino 在每条日志写入前调用，返回值与日志对象合并——
+  // 所有通过 createLogger() 得到的 logger（含 getLogger() 具名子 logger）
+  // 自动携带当前 AsyncLocalStorage 上下文中的 traceId，无需改动 child logger 逻辑。
+  function mixin(): Record<string, unknown> {
+    const id = getTraceId()
+    return id ? { traceId: id } : {}
+  }
+
   if (format === 'console') {
     const colorize = applyWindowsCompat(windowsCompat)
     const springStream = new Writable({
@@ -196,7 +205,7 @@ export function createLogger(options?: CreateLoggerOptions): PinoLogger {
         callback()
       },
     })
-    return pino({ level, redact, base }, springStream)
+    return pino({ level, redact, base, mixin }, springStream)
   }
 
   // JSON 模式：stdout + broadcast 双写
@@ -213,7 +222,7 @@ export function createLogger(options?: CreateLoggerOptions): PinoLogger {
   })
 
   return pino(
-    { level, redact, base },
+    { level, redact, base, mixin },
     pino.multistream([{ stream: process.stdout }, { stream: broadcastStream }]),
   )
 }

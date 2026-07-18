@@ -223,6 +223,25 @@ describe('createLogger', () => {
     // key 用青色 \x1b[36m，value 用黄色 \x1b[33m
     expect(output).toContain('\x1b[36mcolored\x1b[0m=\x1b[33myes\x1b[0m')
   })
+
+  it('console 格式在 runWithTrace 上下文中记录日志时，自动附加 traceId 字段', async () => {
+    const writes: Buffer[] = []
+    const spy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      writes.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)))
+      return true
+    })
+
+    const log = createLogger({ format: 'console', level: 'info', windowsCompat: false })
+    runWithTrace('trace-console-test', () => {
+      log.info('console trace test')
+    })
+
+    await new Promise((r) => setTimeout(r, 50))
+    spy.mockRestore()
+
+    const output = stripAnsi(Buffer.concat(writes).toString())
+    expect(output).toContain('traceId=trace-console-test')
+  })
 })
 
 describe('windowsCompat 选项', () => {

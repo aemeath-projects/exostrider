@@ -271,3 +271,4 @@ export function getLogger(name: string): Logger {
 
 export type { Logger, PinoLogger, LogEntry }
 export { LogBroadcaster } from './broadcast'
+export { runWithTrace, enterTrace, getTraceId } from './trace'

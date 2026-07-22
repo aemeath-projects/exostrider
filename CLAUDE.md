@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 团队规则（必读）
+
+本项目强制遵守 `.claude/rules/` 下的团队规则，这些规则会自动加载到每次 Claude Code 会话中：
+
+| 规则文件           | 覆盖范围                                   |
+| ------------------ | ------------------------------------------ |
+| `security.md`      | Secrets 管理、动态导入安全、连接池安全     |
+| `coding-style.md`  | 不可变优先、模块结构、命名规范、错误处理   |
+| `architecture.md`  | 模块边界、去重、全局单例生命周期、装饰器契约 |
+| `git-workflow.md`  | 提交格式、PR 流程、变更范围控制            |
+| `performance.md`   | 拦截器与分发效率、会话管理、排障节奏       |
+
+任何代码变更都必须符合上述规则。如有冲突，规则文件优先于本文件中的一般性描述。
+
 ## Commands
 
 ```bash

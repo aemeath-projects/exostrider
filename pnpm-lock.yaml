@@ -35,7 +35,7 @@ importers:
         version: 4.1.10(vitest@4.1.10)
       commit-and-tag-version:
         specifier: ^13.0.0
-        version: 13.0.0(conventional-commits-filter@6.0.1)(conventional-commits-parser@7.1.0)
+        version: 13.1.0(conventional-commits-filter@6.0.1)(conventional-commits-parser@7.1.0)
       commitizen:
         specifier: ^4.3.2
         version: 4.3.2(@types/node@26.1.1)(typescript@6.0.3)
@@ -1064,6 +1064,10 @@ packages:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
     engines: {node: '>=10'}
 
+  chalk@5.6.2:
+    resolution: {integrity: sha512-7NzBL0rN6fMUW+f7A6Io4h40qQlG+xGmtMxfbnH/K7TAtt8JQWVQK+6g0UXKMeVJoyV5EkkNsErQ8pVD3bLHbA==}
+    engines: {node: ^12.17.0 || ^14.13 || >=16.0.0}
+
   chardet@2.2.0:
     resolution: {integrity: sha512-rddelWYNPRrXq6PtNEN2S3f6t9ILzvqaN5pVgi4kqt9jHQaXIial9PznB5iSPVlQSLNaaH22ItWz3EJtQ10+OA==}
 
@@ -1119,8 +1123,8 @@ packages:
     resolution: {integrity: sha512-0h+uSNtQGW3D98eQt3jJ8L06Fves8hncB4V/PKdw/Qb8Hnk19VaKuTr55UNRYiSoVa7WwrFls+rh3ux9agmkeQ==}
     engines: {node: '>= 12.0.0'}
 
-  commit-and-tag-version@13.0.0:
-    resolution: {integrity: sha512-iwd9fukyvUVzOFHJrqLwEhWZxxkxauUoF7inkReGFzb0YtglX/53PZ774AcJvekhlNkrKNgmtXWJf5WVafassw==}
+  commit-and-tag-version@13.1.0:
+    resolution: {integrity: sha512-TqUrtbgZy/oiVbl11KphemSZH8023+qHn8r2tb7SoVL0SC5xdUQu/vd4lTMmwDZLOAdCivJibklb0DeoYyW0wg==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -1241,6 +1245,10 @@ packages:
   detect-indent@6.1.0:
     resolution: {integrity: sha512-reYkTUJAZb9gUuZ2RvVCNhVHdg62RHnJ7WJl8ftMi4diZ6NWlciOzQN88pUhSELEwflJht4oQDv0F0BMlwaYtA==}
     engines: {node: '>=8'}
+
+  detect-indent@7.0.2:
+    resolution: {integrity: sha512-y+8xyqdGLL+6sh0tVeHcfP/QDd8gUgbasolJJpY7NgeQGSZ739bDtSiaiDgtoicy+mtYB81dKLxO9xRhCyIB3A==}
+    engines: {node: '>=12.20'}
 
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
@@ -3291,6 +3299,8 @@ snapshots:
       ansi-styles: 4.3.0
       supports-color: 7.2.0
 
+  chalk@5.6.2: {}
+
   chardet@2.2.0: {}
 
   chokidar@4.0.3:
@@ -3337,15 +3347,15 @@ snapshots:
 
   comment-parser@1.4.7: {}
 
-  commit-and-tag-version@13.0.0(conventional-commits-filter@6.0.1)(conventional-commits-parser@7.1.0):
+  commit-and-tag-version@13.1.0(conventional-commits-filter@6.0.1)(conventional-commits-parser@7.1.0):
     dependencies:
       '@conventional-changelog/git-client': 3.1.0(conventional-commits-filter@6.0.1)(conventional-commits-parser@7.1.0)
-      chalk: 2.4.2
+      chalk: 5.6.2
       conventional-changelog: 8.1.0(conventional-commits-filter@6.0.1)
       conventional-changelog-config-spec: 2.1.0
       conventional-changelog-conventionalcommits: 10.2.1
       conventional-recommended-bump: 12.1.0
-      detect-indent: 6.1.0
+      detect-indent: 7.0.2
       detect-newline: 3.1.0
       dotgitignore: 2.1.0
       fast-xml-parser: 5.10.1
@@ -3496,6 +3506,8 @@ snapshots:
   detect-file@1.0.0: {}
 
   detect-indent@6.1.0: {}
+
+  detect-indent@7.0.2: {}
 
   detect-libc@2.1.2: {}
 

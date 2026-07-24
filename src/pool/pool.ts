@@ -147,7 +147,13 @@ export class ClientPool<
     }
   }
 
-  /** 内部：从指定客户端发射事件（供外部回调和测试使用）。 */
+  /**
+   * 内部：从指定客户端发射事件（供外部回调和测试使用）。
+   *
+   * @param clientId - 客户端标识符
+   * @param event - 待发射的原始事件
+   * @param role - 客户端所属角色
+   */
   emitFromClient(clientId: string, event: TEvent, role: TRole): void {
     if (this.dedup && !this.dedup.process(event)) return
     const aggregated: AggregatedEvent<TEvent> = {

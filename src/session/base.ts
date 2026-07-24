@@ -61,7 +61,7 @@ export abstract class InteractiveSession<TData = unknown, TContext = unknown> {
     return []
   }
 
-  /* 生命周期钩子（均为可选重写） */
+  // 生命周期钩子（均为可选重写）
 
   /** 会话启动时调用。 */
   onStart?(ctx: SessionContext<TContext>): Promise<void>
@@ -78,17 +78,15 @@ export abstract class InteractiveSession<TData = unknown, TContext = unknown> {
   /** 会话处理异常时调用。 */
   onError?(ctx: SessionContext<TContext>, error: Error): Promise<void>
 
-  /* 内部工具方法 */
+  // 内部工具方法
 
   /**
    * 从装饰器元数据构建状态定义列表。
    *
    * 扫描实例原型链上的方法，收集 @state / @onInput / @onExit 元数据，
    * 组装成 StateDefinition 列表。
-   */
-  /**
-   * @internal 供框架基础设施（SessionManager）调用，不面向子类或外部使用者。
    *
+   * @internal 供框架基础设施（SessionManager）调用，不面向子类或外部使用者。
    * 外部代码请使用模块导出的 `buildStatesFromDecorators()` 辅助函数。
    */
   // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -203,12 +201,7 @@ export abstract class InteractiveSession<TData = unknown, TContext = unknown> {
 /**
  * 框架内部辅助函数：从装饰器元数据构建会话状态定义列表。
  *
- * 供 SessionManager 等框架基础设施调用，不对外暴露。
- */
-/**
- * 框架内部辅助函数：从装饰器元数据构建会话状态定义列表。
- *
- * 供 SessionManager 等框架基础设施调用，不对外暴露给业务代码。
+ * @internal 供 SessionManager 等框架基础设施调用，不对外暴露给业务代码。
  */
 export function buildStatesFromDecorators<TContext>(
   session: InteractiveSession<unknown, TContext>,

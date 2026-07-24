@@ -42,9 +42,7 @@ export interface HandlerMapping<TEvent = unknown, TApis = unknown> {
   getHandler(ctx: Context<TEvent, TApis>): HandlerMethod | undefined
 }
 
-/* ================================================================
-   具体映射实现
-   ================================================================ */
+/** 具体映射实现 */
 
 /** 通过命令前缀匹配消息文本（例如 /echo、/help）。 */
 export class CommandHandlerMapping<TEvent = unknown, TApis = unknown> implements HandlerMapping<
@@ -275,9 +273,9 @@ export class EventTypeHandlerMapping<TEvent = unknown, TApis = unknown> implemen
   }
 }
 
-/* ================================================================
-   CompositeHandlerMapping — 聚合所有子映射
-   ================================================================ */
+// ================================================================
+// CompositeHandlerMapping — 聚合所有子映射
+// ================================================================
 
 /** 聚合所有 HandlerMapping，按优先级依次尝试匹配，返回第一个命中的处理器。 */
 export class CompositeHandlerMapping<TEvent = unknown, TApis = unknown> implements HandlerMapping<

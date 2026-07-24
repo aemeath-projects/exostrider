@@ -249,7 +249,7 @@ export class SessionManager<TContext = unknown> {
     await Promise.allSettled(keys.map((k) => this.cancel(k)))
   }
 
-  /* 私有方法 */
+  // 私有方法
 
   private async _cleanup(key: string): Promise<void> {
     const active = this._sessions.get(key)

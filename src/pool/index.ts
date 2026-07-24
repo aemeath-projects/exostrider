@@ -1,3 +1,5 @@
+/** pool 模块统一导出入口。 */
+
 export type { ClientAdapter, ClientState, PoolEmitter } from './adapter'
 export type { RoleDefinition } from './role'
 export type { AggregatedEvent, DedupOptions, PoolEventMap } from './types'

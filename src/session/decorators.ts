@@ -10,7 +10,7 @@ import type { SessionClassMeta, StateMethMeta, InputMethMeta, ExitMethMeta } fro
 
 export type { SessionClassMeta as SessionOptions, StateMethMeta as StateOptions }
 
-/* 装饰器选项类型 */
+// 装饰器选项类型
 
 /** @interactiveSession 装饰器选项。 */
 export interface InteractiveSessionOptions {
@@ -41,7 +41,7 @@ function assignMeta<K extends keyof FunctionWithMeta>(
   Object.assign(target, { [key]: value })
 }
 
-/* 装饰器实现 */
+// 装饰器实现
 
 /**
  * 标记类为交互式会话。

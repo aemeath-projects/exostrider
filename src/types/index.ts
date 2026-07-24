@@ -8,7 +8,11 @@ export interface Logger {
   error(msg: string, ...args: unknown[]): void
 }
 
-/** 类型安全的 EventEmitter 封装，基于 Node.js EventEmitter + 泛型重载。 */
+/**
+ * 类型安全的 EventEmitter 封装，基于 Node.js EventEmitter + 泛型重载。
+ *
+ * @typeParam TEvents - 事件映射类型，键为事件名，值为对应的监听器函数签名
+ */
 export class TypedEventEmitter<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   TEvents extends { [K in keyof TEvents]: (...args: any[]) => void },

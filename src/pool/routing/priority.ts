@@ -1,3 +1,4 @@
+/** 优先级路由策略实现。 */
 import type { RoutingCandidate, RoutingStrategy } from './strategy'
 
 /** 优先级路由策略：始终选 priority 最小的候选。 */

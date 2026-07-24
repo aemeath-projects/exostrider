@@ -1,3 +1,4 @@
+/** 粘性路由策略实现。 */
 import type { RoutingCandidate, RoutingStrategy } from './strategy'
 
 /** 粘性路由策略：当前客户端仍在候选中则保持，否则选第一个。 */

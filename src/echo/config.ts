@@ -24,7 +24,13 @@ export function defineConfig(config: EchoConfig): EchoConfig {
   return config
 }
 
-/** 动态 import 配置文件，要求有 default 导出。 */
+/**
+ * 动态 import 配置文件，要求有 default 导出。
+ *
+ * @param configPath - 配置文件路径
+ * @returns 解析后的 EchoConfig 对象
+ * @throws {Error} 当文件不存在、未导出 default、或格式不合法时抛出
+ */
 export async function loadEchoConfig(configPath: string): Promise<EchoConfig> {
   const resolved = path.resolve(configPath)
   let mod: unknown

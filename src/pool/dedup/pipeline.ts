@@ -1,3 +1,4 @@
+/** 去重流水线实现。 */
 import type { DedupOptions } from '../types'
 
 interface CacheEntry {

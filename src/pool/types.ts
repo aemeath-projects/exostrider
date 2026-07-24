@@ -1,3 +1,4 @@
+/** 连接池相关类型定义。 */
 import type { ClientState } from './adapter'
 import type { DedupKeyExtractor } from './dedup/extractor'
 

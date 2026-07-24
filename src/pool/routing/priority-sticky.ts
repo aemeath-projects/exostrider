@@ -1,3 +1,4 @@
+/** 优先级粘性路由策略实现。 */
 import type { RoutingCandidate, RoutingStrategy } from './strategy'
 
 /** 优先级粘性策略：当前客户端可用时保持，否则按 priority 升序选择。 */

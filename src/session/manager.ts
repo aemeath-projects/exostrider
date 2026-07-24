@@ -251,6 +251,11 @@ export class SessionManager<TContext = unknown> {
 
   // 私有方法
 
+  /**
+   * 清理会话资源：清除定时器、从会话表中移除、释放分布式锁。
+   *
+   * @param key - 会话 key
+   */
   private async _cleanup(key: string): Promise<void> {
     const active = this._sessions.get(key)
     if (active !== undefined) {
